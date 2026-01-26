@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Jira Cluster Health Dashboard</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+            line-height: 1.6; 
+            padding: 20px; 
+            background-color: #f5f5f5; 
+            margin: 0;
+        }
+        .container { 
+            max-width: 1800px; 
+            margin: 0 auto; 
+            background: #fff; 
+            padding: 25px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
+        }
+        h1 { 
+            color: #2c3e50; 
+            margin-bottom: 10px;
+        }
+        .header-info {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .control-panel {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .btn { 
+            display: inline-block; 
+            padding: 10px 20px; 
+            font-size: 14px; 
+            font-weight: bold; 
+            color: #fff; 
+            background-color: #0052CC; 
+            border: none; 
+            border-radius: 5px; 
+            text-decoration: none; 
+            text-align: center; 
+            cursor: pointer; 
+            transition: background-color 0.2s; 
+        }
+        .btn:hover:not(:disabled) { 
+            background-color: #003F9E; 
+        }
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #5a6268;
+        }
+        .btn-stop {
+            background-color: #BF2600;
+        }
+        .btn-stop:hover {
+            background-color: #9d1e00;
+        }
+        .monitoring-status {
+            margin-left: 20px;
+            padding: 8px 15px;
+            background-color: #e7f3ff;
+            border-left: 4px solid #0052CC;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #0052CC;
+            font-weight: 500;
+        }
+        .monitoring-status.active {
+            background-color: #d4edda;
+            border-left-color: #177A4B;
+            color: #177A4B;
+        }
+        .section {
+            margin-top: 40px;
+            margin-bottom: 40px;
+        }
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #0052CC;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .section-timestamp {
+            font-size: 12px;
+            font-weight: normal;
+            color: #666;
+            font-style: italic;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 15px;
+            font-size: 13px;
+        }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 10px; 
+            text-align: left; 
+        }
+        th { 
+            background-color: #f2f2f2; 
+            color: #333;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        tr:nth-child(even) { 
+            background-color: #fafafa; 
+        }
+        tr:hover {
+            background-color: #f0f0f0;
+        }
+        .status-online { 
+            color: #177A4B; 
+            font-weight: bold; 
+        }
+        .status-error { 
+            color: #BF2600; 
+            font-weight: bold; 
+        }
+        .status-green {
+            color: #177A4B;
+            font-weight: bold;
+        }
+        .status-yellow {
+            color: #FFAB00;
+            font-weight: bold;
+        }
+        .status-red {
+            color: #BF2600;
+            font-weight: bold;
+        }
+        .status-na {
+            color: #666;
+            font-style: italic;
+        }
+        .metric-value {
+            font-weight: 600;
+        }
+        .connection-info {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .loading {
+            color: #0052CC;
+            font-style: italic;
+        }
+        .error-message {
+            color: #BF2600;
+            background-color: #ffe6e6;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .info-box {
+            background-color: #e7f3ff;
+            border-left: 4px solid #0052CC;
+            padding: 12px;
+            margin: 15px 0;
+        }
+        .info-box strong {
+            color: #0052CC;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Jira Cluster Health Dashboard</h1>
+        <div class="header-info">
+            Comprehensive monitoring for Jira Data Center cluster and database
+        </div>
+        
+        <div class="control-panel">
+            <div class="button-group">
+                <button id="btnMonitoring" class="btn" onclick="startMonitoring()">Monitoring</button>
+                <button id="btnOnDemand" class="btn btn-secondary" onclick="onDemandRefresh()">On Demand</button>
+                <button id="btnStop" class="btn btn-stop" onclick="stopMonitoring()" style="display: none;">Stop</button>
+                <a href="/api/health" class="btn btn-secondary" target="_blank">JSON API</a>
+                <div id="monitoringStatus" class="monitoring-status" style="display: none;"></div>
+            </div>
+        </div>
+
+        <div id="dashboardContent">
+            {% if results %}
+            
+            <!-- Section 1: Jira Index Health -->
+            <div class="section">
+                <div class="section-title">
+                    <span>📊 Jira Index Health<span class="section-timestamp"> - {{ results.last_update }}</span></span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Server</th>
+                            <th>Status</th>
+                            <th>Check Time</th>
+                            <th>DB Count</th>
+                            <th>Index Count</th>
+                            <th>Archive Count</th>
+                            <th>DB Last Update</th>
+                            <th>Index Last Update</th>
+                            <th>Response (sec)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results.index_health %}
+                        <tr>
+                            <td>{{ result.server_name }}</td>
+                            {% if result.status == 'Online' %}
+                                <td class="status-online">{{ result.status }}</td>
+                            {% else %}
+                                <td class="status-error">{{ result.status }}</td>
+                            {% endif %}
+                            <td>{{ result.current_time }}</td>
+                            <td>{{ result.db_count }}</td>
+                            <td>{{ result.index_count }}</td>
+                            <td>{{ result.archive_count }}</td>
+                            <td>{{ result.db_updated }}</td>
+                            <td>{{ result.index_updated }}</td>
+                            <td>{{ result.time_taken_sec }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Section 2: System Metrics -->
+            <div class="section">
+                <div class="section-title">
+                    <span>💻 System Metrics<span class="section-timestamp"> - {{ results.last_update }}</span></span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Server</th>
+                            <th>Status</th>
+                            <th>CPU %</th>
+                            <th>Memory %</th>
+                            <th>Swap %</th>
+                            <th>Load Avg</th>
+                            <th>Disk Usage (Local) %</th>
+                            <th>Disk Usage (Shared Home) %</th>
+                            <th>Disk Usage (Binlogs) %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for metric in results.system_metrics %}
+                        <tr>
+                            <td>{{ metric.server_name }}</td>
+                            {% if metric.status == 'Online' %}
+                                <td class="status-online">{{ metric.status }}</td>
+                            {% else %}
+                                <td class="status-error">{{ metric.status }}{% if metric.error %}: {{ metric.error }}{% endif %}</td>
+                            {% endif %}
+                            <td class="metric-value {{ 'status-green' if metric.cpu_percent != 'N/A' and metric.cpu_percent < 70 else ('status-yellow' if metric.cpu_percent != 'N/A' and metric.cpu_percent < 85 else ('status-red' if metric.cpu_percent != 'N/A' else 'status-na')) }}">
+                                {{ metric.cpu_percent }}{% if metric.cpu_percent != 'N/A' %}%{% endif %}
+                            </td>
+                            <td class="metric-value {{ 'status-green' if metric.memory_percent != 'N/A' and metric.memory_percent < 75 else ('status-yellow' if metric.memory_percent != 'N/A' and metric.memory_percent < 90 else ('status-red' if metric.memory_percent != 'N/A' else 'status-na')) }}">
+                                {{ metric.memory_percent }}{% if metric.memory_percent != 'N/A' %}%{% endif %}
+                            </td>
+                            <td class="metric-value {{ 'status-green' if metric.swap_percent != 'N/A' and metric.swap_percent < 50 else ('status-yellow' if metric.swap_percent != 'N/A' and metric.swap_percent < 80 else ('status-red' if metric.swap_percent != 'N/A' else 'status-na')) }}">
+                                {{ metric.swap_percent }}{% if metric.swap_percent != 'N/A' %}%{% endif %}
+                            </td>
+                            <td class="metric-value {{ 'status-green' if metric.load_avg != 'N/A' and metric.load_avg < 1.0 else ('status-yellow' if metric.load_avg != 'N/A' and metric.load_avg < 2.0 else ('status-red' if metric.load_avg != 'N/A' else 'status-na')) }}">
+                                {{ metric.load_avg }}
+                            </td>
+                            <td class="metric-value {{ 'status-green' if metric.disk_usage_local != 'N/A' and metric.disk_usage_local < 75 else ('status-yellow' if metric.disk_usage_local != 'N/A' and metric.disk_usage_local < 90 else ('status-red' if metric.disk_usage_local != 'N/A' else 'status-na')) }}">
+                                {{ metric.disk_usage_local }}{% if metric.disk_usage_local != 'N/A' %}%{% endif %}
+                            </td>
+                            <td class="metric-value {{ 'status-green' if metric.disk_usage_shared_home != 'N/A' and metric.disk_usage_shared_home < 75 else ('status-yellow' if metric.disk_usage_shared_home != 'N/A' and metric.disk_usage_shared_home < 90 else ('status-red' if metric.disk_usage_shared_home != 'N/A' else 'status-na')) }}">
+                                {{ metric.disk_usage_shared_home }}{% if metric.disk_usage_shared_home != 'N/A' %}%{% endif %}
+                            </td>
+                            <td class="metric-value {{ 'status-green' if metric.disk_usage_binlogs != 'N/A' and metric.disk_usage_binlogs < 75 else ('status-yellow' if metric.disk_usage_binlogs != 'N/A' and metric.disk_usage_binlogs < 90 else ('status-red' if metric.disk_usage_binlogs != 'N/A' else 'status-na')) }}">
+                                {{ metric.disk_usage_binlogs }}{% if metric.disk_usage_binlogs != 'N/A' %}%{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Section 3: Database Connections -->
+            <div class="section">
+                <div class="section-title">
+                    <span>🔌 Database Connections<span class="section-timestamp"> - {{ results.last_update }}</span></span>
+                </div>
+                <div class="info-box">
+                    <strong>Connection Limits:</strong> Max: 1500 | Pool per App Node: 250 | 
+                    <strong>Thresholds:</strong> Green: &lt;80% | Yellow: 80-90% | Red: &gt;90%
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Server</th>
+                            <th>Status</th>
+                            <th>Active Connections</th>
+                            <th>Utilization</th>
+                            <th>Threshold Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for conn in results.db_connections %}
+                        <tr>
+                            <td>{{ conn.server_name }}</td>
+                            {% if conn.status == 'Online' %}
+                                <td class="status-online">{{ conn.status }}</td>
+                            {% else %}
+                                <td class="status-error">{{ conn.status }}</td>
+                            {% endif %}
+                            <td class="metric-value">
+                                {{ conn.connections }}
+                            </td>
+                            <td>
+                                {% if conn.connections != 'N/A' %}
+                                    {% if 'Database' in conn.server_name %}
+                                        {{ "%.1f"|format((conn.connections / 1500) * 100) }}% ({{ conn.connections }}/1500)
+                                    {% else %}
+                                        {{ "%.1f"|format((conn.connections / 250) * 100) }}% ({{ conn.connections }}/250)
+                                    {% endif %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if conn.connections != 'N/A' %}
+                                    {% if 'Database' in conn.server_name %}
+                                        {% set util = (conn.connections / 1500) * 100 %}
+                                    {% else %}
+                                        {% set util = (conn.connections / 250) * 100 %}
+                                    {% endif %}
+                                    {% if util < 80 %}
+                                        <span class="status-green">✓ Normal</span>
+                                    {% elif util < 90 %}
+                                        <span class="status-yellow">⚠ Warning</span>
+                                    {% else %}
+                                        <span class="status-red">✗ Critical</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="status-na">N/A</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Section 4: Database Metrics -->
+            {% if results.db_metrics %}
+            <div class="section">
+                <div class="section-title">
+                    <span>🗄️ Database Server Metrics<span class="section-timestamp"> - {{ results.last_update }}</span></span>
+                </div>
+                {% if results.db_metrics.db_metrics.success %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Value</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Total Connections</strong></td>
+                            <td class="metric-value">
+                                {{ results.db_metrics.db_metrics.total_connections }} / {{ results.db_metrics.db_metrics.max_connections }}
+                            </td>
+                            <td>
+                                {% set util = results.db_metrics.db_metrics.connection_utilization %}
+                                {% if util < 80 %}
+                                    <span class="status-green">✓ Normal</span>
+                                {% elif util < 90 %}
+                                    <span class="status-yellow">⚠ Warning</span>
+                                {% else %}
+                                    <span class="status-red">✗ Critical</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Connection Utilization</strong></td>
+                            <td class="metric-value">{{ results.db_metrics.db_metrics.connection_utilization }}%</td>
+                            <td>
+                                {% set util = results.db_metrics.db_metrics.connection_utilization %}
+                                {% if util < 80 %}
+                                    <span class="status-green">✓ Normal</span>
+                                {% elif util < 90 %}
+                                    <span class="status-yellow">⚠ Warning</span>
+                                {% else %}
+                                    <span class="status-red">✗ Critical</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Active Queries</strong></td>
+                            <td class="metric-value">{{ results.db_metrics.db_metrics.active_queries }}</td>
+                            <td>
+                                {% if results.db_metrics.db_metrics.active_queries < 50 %}
+                                    <span class="status-green">✓ Normal</span>
+                                {% elif results.db_metrics.db_metrics.active_queries < 100 %}
+                                    <span class="status-yellow">⚠ Warning</span>
+                                {% else %}
+                                    <span class="status-red">✗ Critical</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Slow Queries</strong></td>
+                            <td class="metric-value">{{ results.db_metrics.db_metrics.slow_queries }}</td>
+                            <td>
+                                {% if results.db_metrics.db_metrics.slow_queries < 10 %}
+                                    <span class="status-green">✓ Normal</span>
+                                {% elif results.db_metrics.db_metrics.slow_queries < 50 %}
+                                    <span class="status-yellow">⚠ Warning</span>
+                                {% else %}
+                                    <span class="status-red">✗ Critical</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="error-message">
+                    Error retrieving database metrics: {{ results.db_metrics.db_metrics.error }}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="no-data">
+                <p>Click "Monitoring" to start auto-refresh or "On Demand" for a one-time check.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+        const refreshInterval = {{ refresh_interval }} * 1000; // Convert to milliseconds
+        let isMonitoring = false;
+        let isLoading = false; // Prevent concurrent requests
+
+        // Check if we should be in monitoring mode (from sessionStorage)
+        function checkMonitoringState() {
+            const monitoringActive = sessionStorage.getItem('monitoringActive') === 'true';
+            if (monitoringActive && {% if results %}true{% else %}false{% endif %}) {
+                // We have data and monitoring should be active, restore state
+                restoreMonitoringState();
+            }
+        }
+
+        function restoreMonitoringState() {
+            isMonitoring = true;
+            document.getElementById('btnMonitoring').style.display = 'none';
+            document.getElementById('btnOnDemand').disabled = true;
+            document.getElementById('btnStop').style.display = 'inline-block';
+            
+            const statusEl = document.getElementById('monitoringStatus');
+            statusEl.style.display = 'block';
+            statusEl.className = 'monitoring-status active';
+            statusEl.innerHTML = `Monitoring active - Auto-refreshing every {{ refresh_interval }}s`;
+            
+            // Start auto-refresh
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            autoRefreshInterval = setInterval(() => {
+                if (!isLoading) {
+                    // Direct redirect to avoid double execution (don't call API first)
+                    window.location.href = '/check-health';
+                }
+            }, refreshInterval);
+        }
+
+        function loadHealthData() {
+            // This function is kept for potential future use but not used currently
+            // Direct redirects are used instead to avoid double execution
+            // Prevent concurrent requests
+            if (isLoading) {
+                console.log('Health check already in progress, skipping...');
+                return;
+            }
+            
+            isLoading = true;
+            fetch('/api/health')
+                .then(response => response.json())
+                .then(data => {
+                    // Reload the page with new data, preserving monitoring state
+                    if (isMonitoring) {
+                        sessionStorage.setItem('monitoringActive', 'true');
+                    }
+                    window.location.href = '/check-health';
+                })
+                .catch(error => {
+                    console.error('Error fetching health data:', error);
+                    isLoading = false; // Reset on error
+                    const statusEl = document.getElementById('monitoringStatus');
+                    if (statusEl && statusEl.style.display !== 'none') {
+                        statusEl.innerHTML = 
+                            '<span style="color: #BF2600;">Error loading data. Retrying...</span>';
+                    }
+                });
+        }
+
+        function startMonitoring() {
+            isMonitoring = true;
+            sessionStorage.setItem('monitoringActive', 'true');
+            
+            // Update button states
+            document.getElementById('btnMonitoring').style.display = 'none';
+            document.getElementById('btnOnDemand').disabled = true;
+            document.getElementById('btnStop').style.display = 'inline-block';
+            
+            // Show monitoring status
+            const statusEl = document.getElementById('monitoringStatus');
+            statusEl.style.display = 'block';
+            statusEl.className = 'monitoring-status active';
+            statusEl.innerHTML = `Monitoring active - Auto-refreshing every {{ refresh_interval }}s`;
+            
+            // Load data immediately (direct redirect to avoid double execution)
+            window.location.href = '/check-health';
+        }
+
+        function stopMonitoring() {
+            isMonitoring = false;
+            sessionStorage.setItem('monitoringActive', 'false');
+            
+            // Stop auto-refresh
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            
+            // Update button states
+            document.getElementById('btnMonitoring').style.display = 'inline-block';
+            document.getElementById('btnOnDemand').disabled = false;
+            document.getElementById('btnStop').style.display = 'none';
+            
+            // Hide monitoring status
+            document.getElementById('monitoringStatus').style.display = 'none';
+        }
+
+        function onDemandRefresh() {
+            if (isLoading) {
+                console.log('Health check already in progress...');
+                return;
+            }
+            
+            // One-time refresh - clear monitoring state and directly redirect
+            sessionStorage.setItem('monitoringActive', 'false');
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            isMonitoring = false;
+            
+            // Direct redirect to avoid double execution (don't call API first)
+            window.location.href = '/check-health';
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkMonitoringState();
+        });
+    </script>
+</body>
+</html>

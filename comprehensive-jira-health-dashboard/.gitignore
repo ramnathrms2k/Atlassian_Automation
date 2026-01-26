@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.log
+jira_health_dashboard.log
+*.pyc
+.DS_Store

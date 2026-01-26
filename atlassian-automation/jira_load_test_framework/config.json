@@ -1,0 +1,53 @@
+{
+    "test_mode": "mixed",
+    "environments": {
+        "dev": {
+            "base_url": "https://vmw-jira-dev.broadcom.net",
+            "tokens": [
+                "TOKEN",
+                "TOKEN"
+            ],
+            "limits": {
+                "resiliency": 160,
+                "longevity": 100
+            }
+        },
+        "sandbox": {
+            "base_url": "http://jira-lvnv-it-107.lvn.broadcom.net:8080",
+            "tokens": [
+                "TOKEN",
+                "TOKEN"
+            ],
+            "limits": {
+                "resiliency": 80,
+                "longevity": 60
+            }
+        }
+    },
+    "profiles": {
+        "resiliency": {
+            "total_duration_minutes": 120,
+            "ramp_up_minutes": 20,
+            "ramp_down_minutes": 20,
+            "discovery_params": {
+                "max_issues": 2000,
+                "max_boards": 50,
+                "max_filters": 50
+            }
+        },
+        "longevity": {
+            "total_duration_minutes": 360,
+            "ramp_up_minutes": 30,
+            "ramp_down_minutes": 30,
+            "discovery_params": {
+                "max_issues": 6000,
+                "max_boards": 100,
+                "max_filters": 100
+            }
+        }
+    },
+    "ratios": {
+        "read_weight": 85,
+        "write_weight": 15
+    }
+}

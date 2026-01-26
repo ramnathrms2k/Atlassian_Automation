@@ -1,0 +1,44 @@
+{
+  "servers": [
+    {
+      "name": "VMW-Jira-Prod",
+      "url": "https://vmw-jira.broadcom.net",
+      "token": "TOKEN"
+    },
+    {
+      "name": "VMW-Confluence-Prod",
+      "url": "https://vmw-confluence.broadcom.net",
+      "token": "TOKEN"
+    },
+    {
+      "name": "Jira-Prod",
+      "url": "https://jira.broadcom.net",
+      "token": "TOKEN"
+    },
+    {
+      "name": "Confluence-Prod",
+      "url": "https://confluence.broadcom.net",
+      "token": "TOKEN"
+    },
+    {
+      "name": "BSG-Jira-Prod",
+      "url": "https://bsg-jira.broadcom.net",
+      "token": "TOKEN"
+    },
+    {
+      "name": "BSG-Confluence-Prod",
+      "url": "https://bsg-confluence.broadcom.net",
+      "token": "TOKEN"
+    },
+    {
+      "name": "BEP-Jira-Prod",
+      "url": "https://bep-jira.broadcom.net",
+      "token": "TOKEN"
+    },
+    {
+      "name": "ING-Jira-Prod",
+      "url": "https://ingjira.broadcom.net",
+      "token": "TOKEN"
+    }
+  ]
+}

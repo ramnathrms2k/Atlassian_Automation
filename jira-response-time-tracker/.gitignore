@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+*.log
+jira_response_time_tracker.log
+.DS_Store
