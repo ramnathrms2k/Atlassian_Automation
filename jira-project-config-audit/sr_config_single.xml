@@ -1,0 +1,4 @@
+<config id="047f089c-537f-42c4-9592-d18d2a54d8cc" name="Making RCCA Required field Read only for VCF UBM Projects" description="" disabled="false">
+  <init/>
+  <field validator="server" uuid="bb096918-5c25-4514-980f-f94f1c3a35ca" id="customfield_43333" readonly="true" hidden="false" required="false" name="RCCA-Required"/>
+</config>

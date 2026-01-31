@@ -6,7 +6,7 @@ This repository contains a comprehensive collection of automation frameworks, sc
 
 ## Repository Structure
 
-This folder contains **17 specialized automation frameworks**, each designed for specific operational use cases:
+This folder contains **18 specialized automation frameworks**, each designed for specific operational use cases:
 
 ### Performance & Load Testing
 - **[jira_load_test_framework](jira_load_test_framework/)** - Comprehensive load testing framework using Locust for performance certification, resiliency, and longevity testing
@@ -25,6 +25,7 @@ This folder contains **17 specialized automation frameworks**, each designed for
 - **[atl-binary-compare](atl-binary-compare/)** - Utility for comparing setenv.sh configuration files between different versions of Jira or Confluence
 
 ### Auditing & Reporting
+- **[jira-project-config-audit](jira-project-config-audit/)** - Project configuration audit (workflow scheme, automation rules, permissions, screens, ScriptRunner behaviours) with web UI and side-by-side compare
 - **[jira_cf_audit](jira_cf_audit/)** - Custom field audit framework for identifying usage, empty fields, and stale candidates
 - **[atlassian_plugin_report](atlassian_plugin_report/)** - Plugin and marketplace app auditing framework for license compliance and cost analysis
 - **[user_audit](user_audit/)** - User auditing framework for identifying active licensed users, departments, and last login information for license optimization
@@ -161,6 +162,12 @@ Most frameworks require:
 - **Use Cases**: License optimization, compliance auditing, inactive user identification, ghost license reclamation
 - **Documentation**: [README](user_audit/README.md)
 
+#### jira-project-config-audit
+- **Purpose**: Full project configuration audit from Jira database and optional ScriptRunner API
+- **Key Features**: Workflow scheme details (steps, transitions, conditions, validators, post-functions), automation rules with owner/actor display names, permission details with user display names, screens and fields, ScriptRunner behaviours; Flask web UI; side-by-side compare for two audits
+- **Use Cases**: Project config documentation, SBX vs PRD comparison, workflow and automation inventory, permission and screen auditing
+- **Documentation**: [README](jira-project-config-audit/README.md)
+
 ### System Management
 
 #### fetch_groups
@@ -270,6 +277,7 @@ atlassian-automation/
 ├── jira_preflight_validator/          # Pre-deployment validation
 ├── jira_validator/                    # Binary/configuration validation
 ├── atl-binary-compare/                # Binary configuration comparison utility
+├── jira-project-config-audit/         # Project config audit (workflow, automation, permissions, UI, compare)
 ├── jira_cf_audit/                     # Custom field auditing
 ├── atlassian_plugin_report/           # Plugin auditing and reporting
 ├── fetch_groups/                      # LDAP group management

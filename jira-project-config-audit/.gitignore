@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+.venv/
+venv/
+ENV/
+
+# Config and secrets (use config.ini with TOKEN placeholders in repo)
+# config.ini is committed with sanitized values; local overrides:
+# config.ini.local
+
+# Audit output and data
+*.json
+!sr_config_list.xml
+!sr_config_single.xml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
