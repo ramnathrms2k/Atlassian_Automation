@@ -29,6 +29,13 @@ def _format_user_display(user_id, display_name, email):
     return user_id if user_id else "—"
 
 
+def _format_projectrole_display(role_id, role_name):
+    """Format project role for summary: 'id / role_name' when name present, else id (consistent with user display)."""
+    if role_name and str(role_name).strip():
+        return f"{role_id} / {role_name.strip()}"
+    return str(role_id) if role_id is not None else "—"
+
+
 def get_args():
     parser = argparse.ArgumentParser(description="Jira Master Audit Tool v6.8")
     parser.add_argument("--instance", required=True, help="Instance name from config.ini")
@@ -162,11 +169,16 @@ def build_audit_summary(snapshot):
     for p in perm:
         if isinstance(p, dict):
             k = p.get("permission_key", "")
-            t = p.get("perm_type", "")
+            t = (p.get("perm_type") or "").strip().lower()
             v = p.get("perm_parameter", "")
-            v_display = _format_user_display(
-                v, p.get("perm_parameter_display_name"), p.get("perm_parameter_email")
-            ) if (t or "").strip().lower() == "user" else v
+            if t == "user":
+                v_display = _format_user_display(
+                    v, p.get("perm_parameter_display_name"), p.get("perm_parameter_email")
+                )
+            elif t == "projectrole":
+                v_display = _format_projectrole_display(v, p.get("perm_parameter_role_name"))
+            else:
+                v_display = v
             lines.append(f"  • {k} ({t}: {v_display})")
 
     screens = snapshot.get("screens_and_fields") or []
@@ -383,12 +395,17 @@ def build_audit_summary_html(snapshot, table_class="audit-table"):
     parts.append(f'<section class="summary-section summary-permissions"><h3>Permission Details ({len(perm)})</h3><table class="{table_class}"><thead><tr><th>Permission Key</th><th>Type</th><th>Parameter</th></tr></thead><tbody>')
     for p in perm:
         if isinstance(p, dict):
-            t = p.get("perm_type")
+            t = (p.get("perm_type") or "").strip().lower()
             v = p.get("perm_parameter")
-            v_display = _format_user_display(
-                v, p.get("perm_parameter_display_name"), p.get("perm_parameter_email")
-            ) if (t or "").strip().lower() == "user" else v
-            parts.append(f"<tr><td>{_h(p.get('permission_key'))}</td><td>{_h(t)}</td><td>{_h(v_display)}</td></tr>")
+            if t == "user":
+                v_display = _format_user_display(
+                    v, p.get("perm_parameter_display_name"), p.get("perm_parameter_email")
+                )
+            elif t == "projectrole":
+                v_display = _format_projectrole_display(v, p.get("perm_parameter_role_name"))
+            else:
+                v_display = v
+            parts.append(f"<tr><td>{_h(p.get('permission_key'))}</td><td>{_h(p.get('perm_type'))}</td><td>{_h(v_display)}</td></tr>")
     parts.append("</tbody></table></section>")
 
     # Screens and Fields — full list (no truncation)
@@ -469,13 +486,48 @@ def fetch_user_display_batch(cursor, user_identifiers):
         return out
 
 
+def fetch_project_role_names_batch(cursor, role_ids):
+    """
+    Resolve project role IDs to role names via projectrole table.
+    role_ids: list of role IDs (int or str from schemepermissions.perm_parameter when perm_type='projectrole').
+    Returns dict: role_id (normalized to str) -> role_name (str or None).
+    """
+    out = {}
+    ids = []
+    for x in role_ids:
+        if x is None:
+            continue
+        try:
+            xi = int(x)
+            ids.append(xi)
+        except (TypeError, ValueError):
+            pass
+    if not ids:
+        return out
+    ids = list(dict.fromkeys(ids))
+    try:
+        placeholders = ", ".join(["%s"] * len(ids))
+        query = "SELECT `id`, `name` FROM `projectrole` WHERE `id` IN (" + placeholders + ")"
+        cursor.execute(query, ids)
+        for row in cursor.fetchall():
+            rid = row.get("id")
+            name = (row.get("name") or "").strip() or None
+            if rid is not None:
+                out[str(rid)] = name
+        return out
+    except Exception:
+        # projectrole table/columns may not exist in some Jira setups
+        return out
+
+
 def enrich_snapshot_with_user_info(cursor, snapshot):
     """
-    Cross-reference user table to add display_name and email wherever user ids appear.
+    Cross-reference user table and projectrole table to add display names wherever ids appear.
     Mutates snapshot: adds project_lead_display_name, project_lead_email; for each
     automation rule rule_owner_display_name, rule_owner_email, rule_actor_display_name,
     rule_actor_email; for each permission entry (when user) perm_parameter_display_name,
-    perm_parameter_email. Keeps existing id fields unchanged.
+    perm_parameter_email; for each permission entry (when projectrole) perm_parameter_role_name.
+    Keeps existing id fields unchanged. JSON and UI show id / name for users and project roles.
     """
     identifiers = []
     lead = snapshot.get("project_lead")
@@ -489,12 +541,19 @@ def enrich_snapshot_with_user_info(cursor, snapshot):
                 identifiers.append(o)
             if a:
                 identifiers.append(a)
+    role_ids = []
     for p in snapshot.get("permission_details") or []:
-        if isinstance(p, dict) and (p.get("perm_type") or "").strip().lower() == "user":
-            v = p.get("perm_parameter")
-            if v:
-                identifiers.append(v)
+        if isinstance(p, dict):
+            if (p.get("perm_type") or "").strip().lower() == "user":
+                v = p.get("perm_parameter")
+                if v:
+                    identifiers.append(v)
+            elif (p.get("perm_type") or "").strip().lower() == "projectrole":
+                v = p.get("perm_parameter")
+                if v is not None:
+                    role_ids.append(v)
     cache = fetch_user_display_batch(cursor, identifiers)
+    role_name_cache = fetch_project_role_names_batch(cursor, role_ids)
 
     def get_info(key):
         return cache.get(key) or {"display_name": None, "email": None}
@@ -518,12 +577,14 @@ def enrich_snapshot_with_user_info(cursor, snapshot):
     for p in snapshot.get("permission_details") or []:
         if not isinstance(p, dict):
             continue
-        if (p.get("perm_type") or "").strip().lower() != "user":
-            continue
-        v = p.get("perm_parameter")
-        info = get_info(v) if v else {"display_name": None, "email": None}
-        p["perm_parameter_display_name"] = info["display_name"]
-        p["perm_parameter_email"] = info["email"]
+        if (p.get("perm_type") or "").strip().lower() == "user":
+            v = p.get("perm_parameter")
+            info = get_info(v) if v else {"display_name": None, "email": None}
+            p["perm_parameter_display_name"] = info["display_name"]
+            p["perm_parameter_email"] = info["email"]
+        elif (p.get("perm_type") or "").strip().lower() == "projectrole":
+            v = p.get("perm_parameter")
+            p["perm_parameter_role_name"] = role_name_cache.get(str(v)) if v is not None else None
 
 
 ## --- DATA GATHERING MODULES --- ##
