@@ -63,7 +63,7 @@ def index():
     .audit-summary .summary-section h3 { margin: 0 0 0.75rem; font-size: 1rem; font-weight: 600; color: #172b4d; padding-bottom: 0.5rem; border-bottom: 2px solid #deebff; }
     .audit-summary .summary-screens-fields { border-left: 4px solid #0052cc; }
     .audit-summary table { border-collapse: collapse; width: 100%; font-size: 0.875rem; }
-    .audit-summary th, .audit-summary td { border: 1px solid #dfe1e6; padding: 0.4rem 0.6rem; text-align: left; }
+    .audit-summary th, .audit-summary td { border: 1px solid #dfe1e6; padding: 0.4rem 0.6rem; text-align: left; word-wrap: break-word; overflow-wrap: break-word; min-width: 0; box-sizing: border-box; }
     .audit-summary th { background: #f4f5f7; color: #172b4d; font-weight: 600; }
     .audit-summary tbody tr:nth-child(even) { background: #fafbfc; }
     .audit-summary tbody tr:hover { background: #deebff; }
@@ -73,9 +73,9 @@ def index():
     .audit-summary .state-disabled { color: #6b778c; }
     .audit-summary .summary-automation { overflow-x: hidden; }
     .audit-summary .summary-automation table { table-layout: fixed; width: 100%; }
-    .audit-summary .summary-automation th:nth-child(1), .audit-summary .summary-automation td:nth-child(1) { width: 22%; }
-    .audit-summary .summary-automation th:nth-child(2), .audit-summary .summary-automation td:nth-child(2) { width: 8%; }
-    .audit-summary .summary-automation th:nth-child(3), .audit-summary .summary-automation td:nth-child(3) { width: 14%; }
+    .audit-summary .summary-automation th:nth-child(1), .audit-summary .summary-automation td:nth-child(1) { width: 22%; max-width: 22%; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; min-width: 0; vertical-align: top; }
+    .audit-summary .summary-automation th:nth-child(2), .audit-summary .summary-automation td:nth-child(2) { width: 8%; max-width: 8%; white-space: normal; min-width: 0; vertical-align: top; }
+    .audit-summary .summary-automation th:nth-child(3), .audit-summary .summary-automation td:nth-child(3) { width: 14%; max-width: 14%; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; min-width: 0; vertical-align: top; }
     .audit-summary .summary-automation th:nth-child(4), .audit-summary .summary-automation td:nth-child(4),
     .audit-summary .summary-automation th:nth-child(5), .audit-summary .summary-automation td:nth-child(5) {
       width: 28%; max-width: 28%; white-space: normal; word-wrap: break-word; overflow-wrap: break-word;
@@ -366,7 +366,7 @@ def compare_page():
     .col .result .summary-section h3 { margin: 0 0 0.5rem; font-size: 0.95rem; color: #172b4d; padding-bottom: 0.4rem; border-bottom: 2px solid #deebff; }
     .col .result .summary-screens-fields { border-left: 4px solid #0052cc; }
     .col .result table { border-collapse: collapse; width: 100%; margin-bottom: 0; font-size: 0.8rem; }
-    .col .result th, .col .result td { border: 1px solid #dfe1e6; padding: 0.3rem 0.5rem; text-align: left; }
+    .col .result th, .col .result td { border: 1px solid #dfe1e6; padding: 0.3rem 0.5rem; text-align: left; word-wrap: break-word; overflow-wrap: break-word; min-width: 0; box-sizing: border-box; }
     .col .result th { background: #f4f5f7; color: #172b4d; font-weight: 600; }
     .col .result tbody tr:nth-child(even) { background: #fafbfc; }
     .col .result tbody tr:hover { background: #deebff; }
@@ -376,9 +376,9 @@ def compare_page():
     .col .result .state-disabled { color: #6b778c; }
     .col .result .summary-automation { overflow-x: hidden; }
     .col .result .summary-automation table { table-layout: fixed; width: 100%; }
-    .col .result .summary-automation th:nth-child(1), .col .result .summary-automation td:nth-child(1) { width: 22%; }
-    .col .result .summary-automation th:nth-child(2), .col .result .summary-automation td:nth-child(2) { width: 8%; }
-    .col .result .summary-automation th:nth-child(3), .col .result .summary-automation td:nth-child(3) { width: 14%; }
+    .col .result .summary-automation th:nth-child(1), .col .result .summary-automation td:nth-child(1) { width: 22%; max-width: 22%; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; min-width: 0; vertical-align: top; }
+    .col .result .summary-automation th:nth-child(2), .col .result .summary-automation td:nth-child(2) { width: 8%; max-width: 8%; white-space: normal; min-width: 0; vertical-align: top; }
+    .col .result .summary-automation th:nth-child(3), .col .result .summary-automation td:nth-child(3) { width: 14%; max-width: 14%; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; min-width: 0; vertical-align: top; }
     .col .result .summary-automation th:nth-child(4), .col .result .summary-automation td:nth-child(4),
     .col .result .summary-automation th:nth-child(5), .col .result .summary-automation td:nth-child(5) {
       width: 28%; max-width: 28%; white-space: normal; word-wrap: break-word; overflow-wrap: break-word;
