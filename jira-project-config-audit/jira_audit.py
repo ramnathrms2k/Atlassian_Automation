@@ -71,12 +71,30 @@ def build_audit_summary(snapshot):
     lines.append(f"Default Assignee Type: {assignee_type if assignee_type else '—'}")
     its = snapshot.get("issue_type_scheme")
     lines.append(f"Issue Type Scheme: {its if its else '—'}")
+    it_list = snapshot.get("issue_type_scheme_issue_types") or []
+    if it_list:
+        lines.append(f"Issue types in scheme ({len(it_list)}): {', '.join(it_list)}")
     total = snapshot.get("total_issue_count")
     lines.append(f"Total Issue Count: {total if total is not None else '—'}")
     comp = snapshot.get("component_count")
     lines.append(f"Component Count: {comp if comp is not None else '—'}")
     ver = snapshot.get("version_count")
     lines.append(f"Version Count: {ver if ver is not None else '—'}")
+    versions = snapshot.get("versions") or []
+    if versions:
+        lines.append(f"\nVersions ({len(versions)}):")
+        for v in versions:
+            name = v.get("name") or "—"
+            rel = "released" if v.get("released") else "unreleased"
+            arch = "archived" if v.get("archived") else ""
+            lines.append(f"  • {name} ({rel}" + (f", {arch}" if arch else "") + ")")
+    components = snapshot.get("components") or []
+    if components:
+        lines.append(f"\nComponents ({len(components)}):")
+        for c in components:
+            name = c.get("name") or "—"
+            lead = c.get("lead") or ""
+            lines.append(f"  • {name}" + (f" (lead: {lead})" if lead else ""))
     perm_count = snapshot.get("permission_entry_count")
     lines.append(f"Permission Entries: {perm_count if perm_count is not None else '—'}")
     last_key = snapshot.get("last_issue_key")
@@ -102,6 +120,12 @@ def build_audit_summary(snapshot):
         val = snapshot.get(key_name)
         if val is not None:
             lines.append(f"\n{label}: {val}")
+
+    wf_mapping = snapshot.get("workflow_scheme_mapping") or []
+    if wf_mapping:
+        lines.append("\n--- Workflow scheme mapping (issue type → workflow) ---")
+        for m in wf_mapping:
+            lines.append(f"  • {m.get('issue_type', '—')} → {m.get('workflow_name', '—')}")
 
     wf_details = snapshot.get("workflow_scheme_details")
     if wf_details:
@@ -203,9 +227,16 @@ def build_audit_summary(snapshot):
     lines.append(f"\nCustom Field Options ({len(cf)}):")
     for c in cf:
         if isinstance(c, dict):
+            fid = c.get("field_id") or ""
+            oid = c.get("option_id")
             n = c.get("cfname", "")
             v = c.get("customvalue", "")
-            lines.append(f"  • {n} = {v}")
+            prefix = f"  • {fid}" if fid else "  •"
+            if oid is not None:
+                prefix += f" / option_id={oid}"
+            if n:
+                prefix += f" ({n})"
+            lines.append(f"{prefix} = {v}")
 
     lines.append("\n" + "=" * 60)
     return "\n".join(lines)
@@ -258,6 +289,12 @@ def build_audit_summary_html(snapshot, table_class="audit-table"):
         f'<tr><td>Project Category</td><td>{cat}</td></tr>'
         f'<tr><td>Default Assignee Type</td><td>{assignee_type}</td></tr>'
         f'<tr><td>Issue Type Scheme</td><td>{its}</td></tr>'
+    )
+    it_list = snapshot.get("issue_type_scheme_issue_types") or []
+    if it_list:
+        it_list_str = _h(", ".join(it_list))
+        parts.append(f'<tr><td>Issue types in scheme ({len(it_list)})</td><td>{it_list_str}</td></tr>')
+    parts.append(
         f'<tr><td>Total Issue Count</td><td>{total_s}</td></tr>'
         f'<tr><td>Component Count</td><td>{comp_s}</td></tr>'
         f'<tr><td>Version Count</td><td>{ver_s}</td></tr>'
@@ -290,6 +327,41 @@ def build_audit_summary_html(snapshot, table_class="audit-table"):
         if val is not None:
             parts.append(f"<tr><td>{_h(label)}</td><td>{_h(val)}</td></tr>")
     parts.append("</tbody></table></section>")
+
+    # Workflow scheme mapping (issue type → workflow) for quick comparison
+    wf_mapping = snapshot.get("workflow_scheme_mapping") or []
+    if wf_mapping:
+        parts.append(
+            f'<section class="summary-section summary-workflow-mapping"><h3>Workflow scheme mapping (issue type → workflow)</h3>'
+            f'<table class="{table_class}"><thead><tr><th>Issue Type</th><th>Workflow</th></tr></thead><tbody>'
+        )
+        for m in wf_mapping:
+            parts.append(f"<tr><td>{_h(m.get('issue_type', '—'))}</td><td>{_h(m.get('workflow_name', '—'))}</td></tr>")
+        parts.append("</tbody></table></section>")
+
+    # Versions (releases) list
+    versions = snapshot.get("versions") or []
+    if versions:
+        parts.append(
+            f'<section class="summary-section summary-versions"><h3>Versions ({len(versions)})</h3>'
+            f'<table class="{table_class}"><thead><tr><th>Name</th><th>Released</th><th>Archived</th></tr></thead><tbody>'
+        )
+        for v in versions:
+            rel = _h("Yes" if v.get("released") else "No")
+            arch = _h("Yes" if v.get("archived") else "No")
+            parts.append(f"<tr><td>{_h(v.get('name') or '—')}</td><td>{rel}</td><td>{arch}</td></tr>")
+        parts.append("</tbody></table></section>")
+
+    # Components list
+    components = snapshot.get("components") or []
+    if components:
+        parts.append(
+            f'<section class="summary-section summary-components"><h3>Components ({len(components)})</h3>'
+            f'<table class="{table_class}"><thead><tr><th>Name</th><th>Lead</th><th>Description</th></tr></thead><tbody>'
+        )
+        for c in components:
+            parts.append(f"<tr><td>{_h(c.get('name') or '—')}</td><td>{_h(c.get('lead') or '—')}</td><td>{_h((c.get('description') or '')[:200])}</td></tr>")
+        parts.append("</tbody></table></section>")
 
     # Workflow scheme details (steps, transitions, conditions/validators; full XML in JSON for copy-paste)
     wf_details = snapshot.get("workflow_scheme_details")
@@ -429,12 +501,14 @@ def build_audit_summary_html(snapshot, table_class="audit-table"):
                 parts.append(f"<tr><td>{_h(it)}</td><td>{_h(sc)}</td><td>{_h(tab)}</td><td><code>{_h(fid)}</code></td><td>{_h(fname)}</td><td class=\"{req_cls}\">{_h(req)}</td><td>{proj_scope}</td><td>{it_scope}</td></tr>")
     parts.append("</tbody></table></section>")
 
-    # Custom Field Options (full list)
+    # Custom Field Options (full list: field_id, option_id, name, value for audit/comparison)
     cf = snapshot.get("custom_field_options") or []
-    parts.append(f'<section class="summary-section summary-custom-fields"><h3>Custom Field Options ({len(cf)})</h3><table class="{table_class}"><thead><tr><th>Field Name</th><th>Value</th></tr></thead><tbody>')
+    parts.append(f'<section class="summary-section summary-custom-fields"><h3>Custom Field Options ({len(cf)})</h3><table class="{table_class}"><thead><tr><th>Field ID</th><th>Option ID</th><th>Field Name</th><th>Value</th></tr></thead><tbody>')
     for c in cf:
         if isinstance(c, dict):
-            parts.append(f"<tr><td>{_h(c.get('cfname'))}</td><td>{_h(c.get('customvalue'))}</td></tr>")
+            fid = _h(c.get('field_id') or '—')
+            oid = _h(str(c.get('option_id')) if c.get('option_id') is not None else '—')
+            parts.append(f"<tr><td><code>{fid}</code></td><td>{oid}</td><td>{_h(c.get('cfname'))}</td><td>{_h(c.get('customvalue'))}</td></tr>")
     parts.append("</tbody></table></section>")
 
     parts.append("</div>")
@@ -671,6 +745,90 @@ def fetch_version_count(cursor, project_id):
         return int(row["cnt"]) if row else 0
     except Exception:
         return None
+
+
+def fetch_versions(cursor, project_id):
+    """List of versions/releases for the project: id, name, released, archived (for audit/comparison)."""
+    try:
+        cursor.execute(
+            "SELECT `id`, `name`, `released`, `archived` FROM `projectversion` WHERE `PROJECT` = %s ORDER BY `name`",
+            (project_id,),
+        )
+        rows = cursor.fetchall()
+        out = []
+        for r in rows:
+            out.append({
+                "id": r.get("id"),
+                "name": (r.get("name") or "").strip() or None,
+                "released": r.get("released"),
+                "archived": r.get("archived"),
+            })
+        return out
+    except Exception:
+        return []
+
+
+def fetch_components(cursor, project_id):
+    """List of components for the project: id, name, lead, description (for audit/comparison)."""
+    try:
+        cursor.execute(
+            "SELECT `id`, `name`, `lead`, `description` FROM `component` WHERE `PROJECT` = %s ORDER BY `name`",
+            (project_id,),
+        )
+        rows = cursor.fetchall()
+        out = []
+        for r in rows:
+            out.append({
+                "id": r.get("id"),
+                "name": (r.get("name") or "").strip() or None,
+                "lead": (r.get("lead") or "").strip() or None,
+                "description": (r.get("description") or "").strip() or None,
+            })
+        return out
+    except Exception:
+        return []
+
+
+def fetch_issue_type_scheme_issue_types(cursor, project_key):
+    """List of all issue type names in the project's issue type (screen) scheme, including those with 0 issues."""
+    for (na_entity, table, entity_table) in [
+        ("IssueTypeScreenScheme", "issuetypescreenscheme", "issuetypescreenschemeentity"),
+        ("IssueTypeScheme", "issuetypescheme", "issuetypeschemeentity"),
+    ]:
+        try:
+            # Get scheme id for this project
+            cursor.execute(
+                f"SELECT s.`id` AS scheme_id FROM `project` p "
+                f"JOIN `nodeassociation` na ON p.`id` = na.`source_node_id` AND na.`sink_node_entity` = %s "
+                f"JOIN `{table}` s ON na.`sink_node_id` = s.`id` WHERE p.`pkey` = %s",
+                (na_entity, project_key),
+            )
+            row = cursor.fetchone()
+            if not row or not row.get("scheme_id"):
+                continue
+            scheme_id = row["scheme_id"]
+            # Discover entity table column names (issuetype vs issue_type etc.)
+            it_col = _get_actual_column(cursor, entity_table, "issuetype", "issue_type")
+            scheme_col = _get_actual_column(cursor, entity_table, "scheme")
+            if not scheme_col:
+                continue
+            # Distinct issue type ids in this scheme
+            cursor.execute(
+                f"SELECT DISTINCT `{it_col}` AS it_id FROM `{entity_table}` WHERE `{scheme_col}` = %s",
+                (scheme_id,),
+            )
+            it_ids = [r["it_id"] for r in cursor.fetchall() if r.get("it_id") is not None]
+            if not it_ids:
+                continue
+            # Resolve to names
+            placeholders = ", ".join(["%s"] * len(it_ids))
+            cursor.execute(f"SELECT `id`, `pname` FROM `issuetype` WHERE `id` IN ({placeholders})", it_ids)
+            names = {str(r["id"]): (r.get("pname") or "").strip() for r in cursor.fetchall()}
+            return [names.get(str(i), str(i)) or str(i) for i in it_ids]
+        except Exception:
+            continue
+    return []
+
 
 def fetch_issue_type_scheme_name(cursor, project_key):
     """Name of the issue type (screen) scheme attached to the project, if any."""
@@ -1667,17 +1825,41 @@ def fetch_screens_and_fields(cursor, project_key):
     return out
 
 def fetch_cf_options(cursor, project_id):
-    """Retrieves custom field options specifically mapped to this project context."""
+    """Retrieves custom field options specifically mapped to this project context.
+    Returns list of dicts with field_id (e.g. customfield_43231), cfname, option_id, customvalue for audit/comparison."""
     query = (
-        "SELECT cf.`cfname`, cfo.`customvalue` FROM `customfield` cf "
+        "SELECT cf.`id` AS cf_id, cf.`cfname`, cfo.`id` AS option_id, cfo.`customvalue` FROM `customfield` cf "
         "JOIN `customfieldoption` cfo ON cf.`id` = cfo.`customfield` "
         "JOIN `configurationcontext` cc ON CONCAT('customfield_', cf.`id`) = cc.`fieldidentifier` "
         "WHERE cc.`projectid` = %s OR cc.`projectid` IS NULL"
     )
     try:
         cursor.execute(query, (project_id,))
-        return cursor.fetchall()
-    except: return []
+        rows = cursor.fetchall()
+        out = []
+        for r in rows:
+            cf_id = r.get("cf_id")
+            field_id = ("customfield_" + str(cf_id)) if cf_id is not None else None
+            out.append({
+                "field_id": field_id,
+                "cfname": (r.get("cfname") or "").strip() or None,
+                "option_id": r.get("option_id"),
+                "customvalue": (r.get("customvalue") or "").strip() or None,
+            })
+        return out
+    except Exception:
+        # Fallback without field_id/option_id if column names differ
+        try:
+            cursor.execute(
+                "SELECT cf.`cfname`, cfo.`customvalue` FROM `customfield` cf "
+                "JOIN `customfieldoption` cfo ON cf.`id` = cfo.`customfield` "
+                "JOIN `configurationcontext` cc ON CONCAT('customfield_', cf.`id`) = cc.`fieldidentifier` "
+                "WHERE cc.`projectid` = %s OR cc.`projectid` IS NULL",
+                (project_id,),
+            )
+            return cursor.fetchall()
+        except Exception:
+            return []
 
 ## --- MAIN EXECUTION --- ##
 
@@ -1710,6 +1892,7 @@ def run_audit(config, instance, project):
             "project_category": fetch_project_category(cursor, project),
             "default_assignee_type": fetch_default_assignee_type(cursor, project),
             "issue_type_scheme": fetch_issue_type_scheme_name(cursor, project),
+            "issue_type_scheme_issue_types": fetch_issue_type_scheme_issue_types(cursor, project),
             "last_issue_key": last_issue.get("last_issue_key") if last_issue else None,
             "last_issue_created": last_issue.get("last_issue_created") if last_issue else None,
             "last_updated_issue_key": last_updated.get("last_updated_issue_key") if last_updated else None,
@@ -1717,7 +1900,9 @@ def run_audit(config, instance, project):
             "total_issue_count": fetch_total_issue_count(cursor, pulse['ID']),
             "issue_count_by_type": fetch_issue_count_by_type(cursor, pulse['ID'], project),
             "component_count": fetch_component_count(cursor, pulse['ID']),
+            "components": fetch_components(cursor, pulse['ID']),
             "version_count": fetch_version_count(cursor, pulse['ID']),
+            "versions": fetch_versions(cursor, pulse['ID']),
             "permission_entry_count": len(perm_details) if perm_details else 0,
             "automation_rules": fetch_automation_rules(cursor, pulse['ID']),
             "sr_behaviors": sr_behaviors,
@@ -1733,6 +1918,15 @@ def run_audit(config, instance, project):
         )
         if wf_details:
             snapshot["workflow_scheme_details"] = wf_details
+            # Explicit mapping for comparison: issue_type -> workflow_name
+            mapping = []
+            for wf in (wf_details.get("workflows") or []):
+                wf_name = wf.get("workflow_name") or ""
+                for it in (wf.get("issue_types") or []):
+                    mapping.append({"issue_type": it, "workflow_name": wf_name})
+            snapshot["workflow_scheme_mapping"] = mapping
+        else:
+            snapshot["workflow_scheme_mapping"] = []
         enrich_snapshot_with_user_info(cursor, snapshot)
         return snapshot
     finally:

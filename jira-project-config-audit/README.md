@@ -9,10 +9,13 @@ A framework for auditing Jira project configuration from the database and option
 - **Project metadata**: Lead, schemes, issue counts, last created/updated issue
 - **Workflow scheme details**: Steps, transitions, conditions, validators, post-functions; full descriptor XML (expand/collapse in UI)
 - **Automation rules**: Name, state, scope, rule owner/actor (with display name and email when resolvable)
-- **Permission details**: Scheme permissions with parameter display (user display name/email when type=user)
+- **Permission details**: Scheme permissions with parameter display (user display name/email when type=user; project role id/name when type=projectrole)
 - **Screens and fields**: Issue type → screen → tab → field with required/optional and scope
 - **ScriptRunner behaviours**: Names, descriptions, project/issuetype mapping counts (DB or REST API fallback)
-- **Custom field options**: Project-scoped custom field options
+- **Custom field options**: Project-scoped custom field options with **field_id** (e.g. customfield_43231) and **option_id** for comparison
+- **Workflow scheme mapping**: Explicit **issue type → workflow name** table for quick comparison and clone checks
+- **Issue types in scheme**: Full list of issue types in the project’s issue type (screen) scheme, including those with 0 issues
+- **Versions / Components**: Full lists (name, released/archived for versions; name, lead, description for components), not just counts
 - **Compare**: Run two audits (different instances or projects) and view side-by-side
 
 ## Prerequisites
@@ -81,9 +84,15 @@ python app.py
 
 ## Output
 
-- **Summary (text)**: Human-readable sections (metadata, schemes, workflow details, automation rules, behaviours, permissions, screens, custom fields)
-- **Summary (HTML)**: Tables with sticky first two columns in workflow tables; expand/collapse descriptor XML per workflow
-- **JSON**: Full snapshot for automation or archival; includes workflow conditions/validators/post-functions with class and args
+- **Summary (text)**: Human-readable sections (metadata, issue types in scheme, workflow mapping, versions, components, schemes, workflow details, automation rules, behaviours, permissions, screens, custom fields with field_id/option_id)
+- **Summary (HTML)**: Tables for workflow mapping (issue type → workflow), versions, components; sticky columns in workflow tables; expand/collapse descriptor XML per workflow; custom field options table with Field ID and Option ID
+- **JSON**: Full snapshot for automation or archival; includes:
+  - **workflow_scheme_mapping**: `[{ "issue_type", "workflow_name" }, ...]` for explicit comparison
+  - **issue_type_scheme_issue_types**: list of all issue type names in the scheme (including 0-issue types)
+  - **versions**: `[{ "id", "name", "released", "archived" }, ...]`
+  - **components**: `[{ "id", "name", "lead", "description" }, ...]`
+  - **custom_field_options**: each entry has **field_id** (e.g. customfield_43231), **option_id**, cfname, customvalue
+  - Workflow conditions/validators/post-functions with class and args; permission entries with **perm_parameter_role_name** when type=projectrole
 
 ## Files Overview
 
@@ -96,6 +105,7 @@ python app.py
 | `requirements.txt` | flask, mysql-connector-python |
 | `COMPARE_USAGE.md` | How to use compare feature |
 | `SR_BEHAVIORS_README.md` | ScriptRunner behaviours discovery |
+| `AUDIT_ENHANCEMENT_PLAN.md` | Phase 1 enhancement plan (workflow mapping, versions, components, issue types in scheme, field_id/option_id); Phase 2 ideas |
 
 ## Security Notes
 
