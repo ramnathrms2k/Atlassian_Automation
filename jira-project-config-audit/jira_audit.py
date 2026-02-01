@@ -1838,8 +1838,8 @@ def fetch_cf_options(cursor, project_id):
     query = (
         "SELECT cf.`id` AS cf_id, cf.`cfname`, cfo.`id` AS option_id, cfo.`customvalue` FROM `customfield` cf "
         "JOIN `customfieldoption` cfo ON cf.`id` = cfo.`customfield` "
-        "JOIN `configurationcontext` cc ON CONCAT('customfield_', cf.`id`) = cc.`fieldidentifier` "
-        "WHERE cc.`projectid` = %s OR cc.`projectid` IS NULL"
+        "JOIN `configurationcontext` cc ON CONCAT('customfield_', cf.`id`) = cc.`customfield` "
+        "WHERE cc.`project` = %s OR cc.`project` IS NULL"
     )
     try:
         cursor.execute(query, (project_id,))
@@ -1861,8 +1861,8 @@ def fetch_cf_options(cursor, project_id):
             cursor.execute(
                 "SELECT cf.`cfname`, cfo.`customvalue` FROM `customfield` cf "
                 "JOIN `customfieldoption` cfo ON cf.`id` = cfo.`customfield` "
-                "JOIN `configurationcontext` cc ON CONCAT('customfield_', cf.`id`) = cc.`fieldidentifier` "
-                "WHERE cc.`projectid` = %s OR cc.`projectid` IS NULL",
+                "JOIN `configurationcontext` cc ON CONCAT('customfield_', cf.`id`) = cc.`customfield` "
+                "WHERE cc.`project` = %s OR cc.`project` IS NULL",
                 (project_id,),
             )
             return cursor.fetchall()
