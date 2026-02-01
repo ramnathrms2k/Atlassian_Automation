@@ -1923,7 +1923,8 @@ def run_audit(config, instance, project):
             for wf in (wf_details.get("workflows") or []):
                 wf_name = wf.get("workflow_name") or ""
                 for it in (wf.get("issue_types") or []):
-                    mapping.append({"issue_type": it, "workflow_name": wf_name})
+                    display_issue_type = "(default)" if it in ("0", 0) else it
+                    mapping.append({"issue_type": display_issue_type, "workflow_name": wf_name})
             snapshot["workflow_scheme_mapping"] = mapping
         else:
             snapshot["workflow_scheme_mapping"] = []
