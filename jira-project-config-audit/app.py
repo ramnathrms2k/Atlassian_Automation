@@ -59,8 +59,13 @@ def index():
     .audit-summary .summary-header { background: linear-gradient(135deg, #172b4d 0%, #253858 100%); color: #fff; padding: 1.25rem 1.5rem; margin: -1rem -1rem 1.25rem -1rem; border-radius: 8px 8px 0 0; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
     .audit-summary .summary-header h2 { margin: 0; font-size: 1.2rem; font-weight: 600; letter-spacing: 0.02em; }
     .audit-summary .summary-project { margin: 0.4rem 0 0; opacity: 0.95; font-size: 1rem; }
-    .audit-summary .summary-section { background: #fff; border: 1px solid #dfe1e6; border-radius: 8px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; box-shadow: 0 1px 2px rgba(9,30,66,0.06); }
-    .audit-summary .summary-section h3 { margin: 0 0 0.75rem; font-size: 1rem; font-weight: 600; color: #172b4d; padding-bottom: 0.5rem; border-bottom: 2px solid #deebff; }
+    .audit-summary .summary-section { background: #fff; border: 1px solid #dfe1e6; border-radius: 8px; margin-bottom: 1.25rem; box-shadow: 0 1px 2px rgba(9,30,66,0.06); }
+    .audit-summary .summary-section > summary { cursor: pointer; list-style: none; padding: 1.25rem 1.5rem; }
+    .audit-summary .summary-section > summary::-webkit-details-marker { display: none; }
+    .audit-summary .summary-section > summary h3 { margin: 0; font-size: 1rem; font-weight: 600; color: #172b4d; padding-bottom: 0; border-bottom: none; }
+    .audit-summary .summary-section .section-content { padding: 0.75rem 1.5rem 1.25rem; border-top: 1px solid #f4f5f7; }
+    .audit-summary .summary-section[open] > summary { border-bottom: 1px solid #deebff; padding-bottom: 0.75rem; margin-bottom: 0; }
+    .audit-summary .summary-custom-fields-table .cf-values-cell { max-width: 40rem; word-wrap: break-word; overflow-wrap: break-word; white-space: normal; }
     .audit-summary .summary-screens-fields { border-left: 4px solid #0052cc; }
     .audit-summary table { border-collapse: collapse; width: 100%; font-size: 0.875rem; }
     .audit-summary th, .audit-summary td { border: 1px solid #dfe1e6; padding: 0.4rem 0.6rem; text-align: left; word-wrap: break-word; overflow-wrap: break-word; min-width: 0; box-sizing: border-box; }
@@ -156,7 +161,7 @@ def index():
 
     btnDownloadHtml.addEventListener('click', () => {
       if (!lastAudit || !lastAudit.summary_html) return;
-      const doc = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Audit summary – ' + (lastAudit.instance + '-' + lastAudit.project) + '</title><style>.audit-summary{font-family:system-ui,sans-serif;max-width:1200px;margin:0 auto;padding:1rem;font-size:0.9rem;}.audit-summary .summary-header{background:linear-gradient(135deg,#172b4d 0%,#253858 100%);color:#fff;padding:1.25rem 1.5rem;margin:-1rem -1rem 1.25rem -1rem;border-radius:8px 8px 0 0;}.audit-summary .summary-section{background:#fff;border:1px solid #dfe1e6;border-radius:8px;padding:1.25rem;margin-bottom:1rem;}.audit-summary table{border-collapse:collapse;width:100%;}.audit-summary th,.audit-summary td{border:1px solid #dfe1e6;padding:0.4rem 0.6rem;text-align:left;}.audit-summary th{background:#f4f5f7;}.audit-summary code{background:#eaecef;padding:0.15rem 0.35rem;border-radius:3px;}</style></head><body><div class="audit-summary">' + lastAudit.summary_html + '</div></body></html>';
+      const doc = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Audit summary – ' + (lastAudit.instance + '-' + lastAudit.project) + '</title><style>.audit-summary{font-family:system-ui,sans-serif;max-width:1200px;margin:0 auto;padding:1rem;font-size:0.9rem;}.audit-summary .summary-header{background:linear-gradient(135deg,#172b4d 0%,#253858 100%);color:#fff;padding:1.25rem 1.5rem;margin:-1rem -1rem 1.25rem -1rem;border-radius:8px 8px 0 0;}.audit-summary .summary-section{background:#fff;border:1px solid #dfe1e6;border-radius:8px;margin-bottom:1rem;}.audit-summary .summary-section>summary{cursor:pointer;list-style:none;padding:1rem 1.25rem;}.audit-summary .summary-section>summary::-webkit-details-marker{display:none;}.audit-summary .summary-section .section-content{padding:0.75rem 1.25rem 1rem;border-top:1px solid #f4f5f7;}.audit-summary table{border-collapse:collapse;width:100%;}.audit-summary th,.audit-summary td{border:1px solid #dfe1e6;padding:0.4rem 0.6rem;text-align:left;word-wrap:break-word;}.audit-summary th{background:#f4f5f7;}.audit-summary code{background:#eaecef;padding:0.15rem 0.35rem;border-radius:3px;}.audit-summary .cf-values-cell{max-width:40rem;word-wrap:break-word;overflow-wrap:break-word;}</style></head><body><div class="audit-summary">' + lastAudit.summary_html + '</div></body></html>';
       const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
       downloadBlob(blob, 'audit-summary-' + lastAudit.instance + '-' + lastAudit.project + '.html');
     });
@@ -362,8 +367,13 @@ def compare_page():
     .col .result .summary-header { background: linear-gradient(135deg, #172b4d 0%, #253858 100%); color: #fff; padding: 0.75rem 1rem; margin: -0.75rem -0.75rem 1rem -0.75rem; border-radius: 8px 8px 0 0; }
     .col .result .summary-header h2 { margin: 0; font-size: 1rem; font-weight: 600; }
     .col .result .summary-project { margin: 0.25rem 0 0; opacity: 0.95; font-size: 0.9rem; }
-    .col .result .summary-section { background: #fff; border: 1px solid #dfe1e6; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; box-shadow: 0 1px 2px rgba(9,30,66,0.06); }
-    .col .result .summary-section h3 { margin: 0 0 0.5rem; font-size: 0.95rem; color: #172b4d; padding-bottom: 0.4rem; border-bottom: 2px solid #deebff; }
+    .col .result .summary-section { background: #fff; border: 1px solid #dfe1e6; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 1px 2px rgba(9,30,66,0.06); }
+    .col .result .summary-section > summary { cursor: pointer; list-style: none; padding: 0.75rem 1rem; }
+    .col .result .summary-section > summary::-webkit-details-marker { display: none; }
+    .col .result .summary-section > summary h3 { margin: 0; font-size: 0.95rem; font-weight: 600; color: #172b4d; padding-bottom: 0; border-bottom: none; }
+    .col .result .summary-section .section-content { padding: 0 1rem 0.75rem; border-top: 1px solid #f4f5f7; }
+    .col .result .summary-section[open] > summary { border-bottom: 1px solid #deebff; padding-bottom: 0.5rem; }
+    .col .result .summary-custom-fields-table .cf-values-cell { max-width: 30rem; word-wrap: break-word; overflow-wrap: break-word; white-space: normal; }
     .col .result .summary-screens-fields { border-left: 4px solid #0052cc; }
     .col .result table { border-collapse: collapse; width: 100%; margin-bottom: 0; font-size: 0.8rem; }
     .col .result th, .col .result td { border: 1px solid #dfe1e6; padding: 0.3rem 0.5rem; text-align: left; word-wrap: break-word; overflow-wrap: break-word; min-width: 0; box-sizing: border-box; }

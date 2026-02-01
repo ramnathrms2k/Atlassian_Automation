@@ -224,19 +224,16 @@ def build_audit_summary(snapshot):
                 lines.append(f"  • {it} / {sc} / {tab} — {fname} ({fid}) [{req}] Projects: {proj_scope}, Issue types: {it_scope}")
 
     cf = snapshot.get("custom_field_options") or []
-    lines.append(f"\nCustom Field Options ({len(cf)}):")
-    for c in cf:
-        if isinstance(c, dict):
-            fid = c.get("field_id") or ""
-            oid = c.get("option_id")
-            n = c.get("cfname", "")
-            v = c.get("customvalue", "")
-            prefix = f"  • {fid}" if fid else "  •"
-            if oid is not None:
-                prefix += f" / option_id={oid}"
-            if n:
-                prefix += f" ({n})"
-            lines.append(f"{prefix} = {v}")
+    cf_grouped = _group_custom_field_options(cf)
+    lines.append(f"\nCustom Field Options ({len(cf)} options in {len(cf_grouped)} fields):")
+    for g in cf_grouped:
+        fid = g.get("field_id") or ""
+        n = g.get("cfname", "")
+        vals = g.get("values_str", "")
+        prefix = f"  • {fid}" if fid else "  •"
+        if n:
+            prefix += f" ({n})"
+        lines.append(f"{prefix}: {vals}")
 
     lines.append("\n" + "=" * 60)
     return "\n".join(lines)
@@ -247,6 +244,33 @@ def _h(s):
     if s is None:
         return ""
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+def _group_custom_field_options(cf_list):
+    """Group custom_field_options by (field_id, cfname); values as comma-separated string. Returns list of dicts with field_id, cfname, values_str, option_count."""
+    if not cf_list:
+        return []
+    groups = {}
+    for c in cf_list:
+        if not isinstance(c, dict):
+            continue
+        fid = c.get("field_id") or ""
+        cfname = (c.get("cfname") or "").strip() or ""
+        key = (fid, cfname)
+        if key not in groups:
+            groups[key] = []
+        v = c.get("customvalue")
+        if v is not None:
+            groups[key].append(str(v).strip())
+    out = []
+    for (fid, cfname), values in groups.items():
+        out.append({
+            "field_id": fid,
+            "cfname": cfname,
+            "values_str": ", ".join(values),
+            "option_count": len(values),
+        })
+    return out
 
 
 def build_audit_summary_html(snapshot, table_class="audit-table"):
@@ -281,7 +305,7 @@ def build_audit_summary_html(snapshot, table_class="audit-table"):
     last_up_key = _h(snapshot.get("last_updated_issue_key") or "—")
     last_up_ts = _h(snapshot.get("last_updated_issue_timestamp") or "—")
     parts.append(
-        '<section class="summary-section summary-metadata"><h3>Project metadata</h3>'
+        '<details class="summary-section summary-metadata"><summary><h3>Project metadata</h3></summary><div class="section-content">'
         f'<table class="{_h(table_class)}"><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>'
         f'<tr><td>Project Key</td><td><strong>{key}</strong></td></tr>'
         f'<tr><td>Project Name</td><td>{name}</td></tr>'
@@ -303,21 +327,21 @@ def build_audit_summary_html(snapshot, table_class="audit-table"):
         f'<tr><td>Last Issue Created (timestamp)</td><td>{last_created}</td></tr>'
         f'<tr><td>Last Updated Issue</td><td><code>{last_up_key}</code></td></tr>'
         f'<tr><td>Last Updated (timestamp)</td><td>{last_up_ts}</td></tr>'
-        '</tbody></table></section>'
+        '</tbody></table></div></details>'
     )
     # Issue count by type (sub-table under metadata)
     by_type = snapshot.get("issue_count_by_type") or []
     if by_type:
         parts.append(
-            '<section class="summary-section summary-metadata-counts"><h3>Issue count by type</h3>'
+            '<details class="summary-section summary-metadata-counts"><summary><h3>Issue count by type</h3></summary><div class="section-content">'
             f'<table class="{_h(table_class)}"><thead><tr><th>Issue Type</th><th>Count</th></tr></thead><tbody>'
         )
         for t in by_type:
             parts.append(f"<tr><td>{_h(t.get('issue_type', '—'))}</td><td>{int(t.get('count', 0))}</td></tr>")
-        parts.append("</tbody></table></section>")
+        parts.append("</tbody></table></div></details>")
 
     # Schemes
-    parts.append('<section class="summary-section summary-schemes"><h3>Schemes</h3><table class="%s"><thead><tr><th>Category</th><th>Name</th></tr></thead><tbody>' % _h(table_class))
+    parts.append('<details class="summary-section summary-schemes"><summary><h3>Schemes</h3></summary><div class="section-content"><table class="%s"><thead><tr><th>Category</th><th>Name</th></tr></thead><tbody>' % _h(table_class))
     for label, key_name in [
         ("Workflow Scheme", "workflow_scheme"),
         ("Permission Scheme", "permission_scheme"),
@@ -326,48 +350,48 @@ def build_audit_summary_html(snapshot, table_class="audit-table"):
         val = snapshot.get(key_name)
         if val is not None:
             parts.append(f"<tr><td>{_h(label)}</td><td>{_h(val)}</td></tr>")
-    parts.append("</tbody></table></section>")
+    parts.append("</tbody></table></div></details>")
 
     # Workflow scheme mapping (issue type → workflow) for quick comparison
     wf_mapping = snapshot.get("workflow_scheme_mapping") or []
     if wf_mapping:
         parts.append(
-            f'<section class="summary-section summary-workflow-mapping"><h3>Workflow scheme mapping (issue type → workflow)</h3>'
+            f'<details class="summary-section summary-workflow-mapping"><summary><h3>Workflow scheme mapping (issue type → workflow)</h3></summary><div class="section-content">'
             f'<table class="{table_class}"><thead><tr><th>Issue Type</th><th>Workflow</th></tr></thead><tbody>'
         )
         for m in wf_mapping:
             parts.append(f"<tr><td>{_h(m.get('issue_type', '—'))}</td><td>{_h(m.get('workflow_name', '—'))}</td></tr>")
-        parts.append("</tbody></table></section>")
+        parts.append("</tbody></table></div></details>")
 
     # Versions (releases) list
     versions = snapshot.get("versions") or []
     if versions:
         parts.append(
-            f'<section class="summary-section summary-versions"><h3>Versions ({len(versions)})</h3>'
+            f'<details class="summary-section summary-versions"><summary><h3>Versions ({len(versions)})</h3></summary><div class="section-content">'
             f'<table class="{table_class}"><thead><tr><th>Name</th><th>Released</th><th>Archived</th></tr></thead><tbody>'
         )
         for v in versions:
             rel = _h("Yes" if v.get("released") else "No")
             arch = _h("Yes" if v.get("archived") else "No")
             parts.append(f"<tr><td>{_h(v.get('name') or '—')}</td><td>{rel}</td><td>{arch}</td></tr>")
-        parts.append("</tbody></table></section>")
+        parts.append("</tbody></table></div></details>")
 
     # Components list
     components = snapshot.get("components") or []
     if components:
         parts.append(
-            f'<section class="summary-section summary-components"><h3>Components ({len(components)})</h3>'
+            f'<details class="summary-section summary-components"><summary><h3>Components ({len(components)})</h3></summary><div class="section-content">'
             f'<table class="{table_class}"><thead><tr><th>Name</th><th>Lead</th><th>Description</th></tr></thead><tbody>'
         )
         for c in components:
             parts.append(f"<tr><td>{_h(c.get('name') or '—')}</td><td>{_h(c.get('lead') or '—')}</td><td>{_h((c.get('description') or '')[:200])}</td></tr>")
-        parts.append("</tbody></table></section>")
+        parts.append("</tbody></table></div></details>")
 
     # Workflow scheme details (steps, transitions, conditions/validators; full XML in JSON for copy-paste)
     wf_details = snapshot.get("workflow_scheme_details")
     if wf_details:
         parts.append(
-            f'<section class="summary-section summary-workflow-details"><h3>Workflow scheme details</h3>'
+            f'<details class="summary-section summary-workflow-details"><summary><h3>Workflow scheme details</h3></summary><div class="section-content">'
             f'<p class="workflow-details-intro">Scheme: <strong>{_h(wf_details.get("scheme_name", ""))}</strong>. '
             'Steps, transitions, conditions, validators, and post-functions below; full descriptor XML is in the JSON export for copy-paste.</p>'
         )
@@ -416,12 +440,12 @@ def build_audit_summary_html(snapshot, table_class="audit-table"):
             if wf.get("parse_error"):
                 parts.append('<p class="workflow-parse-warn">(XML parse error; raw descriptor available in JSON export.)</p>')
             parts.append("</div>")
-        parts.append("</section>")
+        parts.append("</div></details>")
 
     # Automation Rules (full list): name, state, scope, rule owner, rule actor
     rules = snapshot.get("automation_rules") or []
     parts.append(
-        f'<section class="summary-section summary-automation"><h3>Automation Rules ({len(rules)})</h3>'
+        f'<details class="summary-section summary-automation"><summary><h3>Automation Rules ({len(rules)})</h3></summary><div class="section-content">'
         f'<table class="{table_class}"><thead><tr><th>Rule Name</th><th>State</th><th>Scope</th><th>Rule Owner</th><th>Rule Actor</th></tr></thead><tbody>'
     )
     for r in rules:
@@ -439,13 +463,13 @@ def build_audit_summary_html(snapshot, table_class="audit-table"):
                 f"<tr><td>{_h(r.get('NAME'))}</td><td class=\"{state_cls}\">{_h(r.get('STATE'))}</td>"
                 f"<td>{scope}</td><td>{owner_display}</td><td>{actor_display}</td></tr>"
             )
-    parts.append("</tbody></table></section>")
+    parts.append("</tbody></table></div></details>")
 
     # ScriptRunner Behaviors (with project/issuetype/field mapping counts when available)
     sr = snapshot.get("sr_behaviors") or []
     count = snapshot.get("sr_behaviors_count", len(sr))
     parts.append(
-        f'<section class="summary-section summary-behaviors"><h3>ScriptRunner Behaviors ({count})</h3>'
+        f'<details class="summary-section summary-behaviors"><summary><h3>ScriptRunner Behaviors ({count})</h3></summary><div class="section-content">'
         f'<table class="{table_class}"><thead><tr><th>Behavior Name</th><th>Description</th><th>Project mappings</th><th>Issue type mappings</th><th>Field mappings</th></tr></thead><tbody>'
     )
     for b in sr:
@@ -460,11 +484,11 @@ def build_audit_summary_html(snapshot, table_class="audit-table"):
                 f"<tr><td>{_h(b.get('NAME'))}</td><td>{_h(b.get('DESCRIPTION'))}</td>"
                 f"<td>{pc_s}</td><td>{ic_s}</td><td>{fc_s}</td></tr>"
             )
-    parts.append("</tbody></table></section>")
+    parts.append("</tbody></table></div></details>")
 
     # Permission Details (full list)
     perm = snapshot.get("permission_details") or []
-    parts.append(f'<section class="summary-section summary-permissions"><h3>Permission Details ({len(perm)})</h3><table class="{table_class}"><thead><tr><th>Permission Key</th><th>Type</th><th>Parameter</th></tr></thead><tbody>')
+    parts.append(f'<details class="summary-section summary-permissions"><summary><h3>Permission Details ({len(perm)})</h3></summary><div class="section-content"><table class="{table_class}"><thead><tr><th>Permission Key</th><th>Type</th><th>Parameter</th></tr></thead><tbody>')
     for p in perm:
         if isinstance(p, dict):
             t = (p.get("perm_type") or "").strip().lower()
@@ -478,11 +502,11 @@ def build_audit_summary_html(snapshot, table_class="audit-table"):
             else:
                 v_display = v
             parts.append(f"<tr><td>{_h(p.get('permission_key'))}</td><td>{_h(p.get('perm_type'))}</td><td>{_h(v_display)}</td></tr>")
-    parts.append("</tbody></table></section>")
+    parts.append("</tbody></table></div></details>")
 
     # Screens and Fields — full list (no truncation)
     screens = snapshot.get("screens_and_fields") or []
-    parts.append(f'<section class="summary-section summary-screens-fields"><h3>Screens and Fields ({len(screens)})</h3><table class="{table_class} screens-fields-table"><thead><tr><th>Issue Type</th><th>Screen</th><th>Tab</th><th>Field ID</th><th>Field Name</th><th>Required/Optional</th><th>Projects</th><th>Issue types</th></tr></thead><tbody>')
+    parts.append(f'<details class="summary-section summary-screens-fields"><summary><h3>Screens and Fields ({len(screens)})</h3></summary><div class="section-content"><table class="{table_class} screens-fields-table"><thead><tr><th>Issue Type</th><th>Screen</th><th>Tab</th><th>Field ID</th><th>Field Name</th><th>Required/Optional</th><th>Projects</th><th>Issue types</th></tr></thead><tbody>')
     seen = set()
     for s in screens:
         if isinstance(s, dict):
@@ -499,17 +523,20 @@ def build_audit_summary_html(snapshot, table_class="audit-table"):
                 seen.add(key_tuple)
                 req_cls = "req-required" if req.lower() == "required" else "req-optional"
                 parts.append(f"<tr><td>{_h(it)}</td><td>{_h(sc)}</td><td>{_h(tab)}</td><td><code>{_h(fid)}</code></td><td>{_h(fname)}</td><td class=\"{req_cls}\">{_h(req)}</td><td>{proj_scope}</td><td>{it_scope}</td></tr>")
-    parts.append("</tbody></table></section>")
+    parts.append("</tbody></table></div></details>")
 
-    # Custom Field Options (full list: field_id, option_id, name, value for audit/comparison)
+    # Custom Field Options (grouped by field: one row per field, values comma-separated)
     cf = snapshot.get("custom_field_options") or []
-    parts.append(f'<section class="summary-section summary-custom-fields"><h3>Custom Field Options ({len(cf)})</h3><table class="{table_class}"><thead><tr><th>Field ID</th><th>Option ID</th><th>Field Name</th><th>Value</th></tr></thead><tbody>')
-    for c in cf:
-        if isinstance(c, dict):
-            fid = _h(c.get('field_id') or '—')
-            oid = _h(str(c.get('option_id')) if c.get('option_id') is not None else '—')
-            parts.append(f"<tr><td><code>{fid}</code></td><td>{oid}</td><td>{_h(c.get('cfname'))}</td><td>{_h(c.get('customvalue'))}</td></tr>")
-    parts.append("</tbody></table></section>")
+    cf_grouped = _group_custom_field_options(cf)
+    total_opts = len(cf)
+    parts.append(f'<details class="summary-section summary-custom-fields"><summary><h3>Custom Field Options ({total_opts} options in {len(cf_grouped)} fields)</h3></summary><div class="section-content">')
+    parts.append(f'<table class="{table_class} summary-custom-fields-table"><thead><tr><th>Field ID</th><th>Field Name</th><th>Values</th></tr></thead><tbody>')
+    for g in cf_grouped:
+        fid = _h(g.get("field_id") or "—")
+        cfname = _h(g.get("cfname") or "—")
+        vals = _h(g.get("values_str") or "—")
+        parts.append(f"<tr><td><code>{fid}</code></td><td>{cfname}</td><td class=\"cf-values-cell\">{vals}</td></tr>")
+    parts.append("</tbody></table></div></details>")
 
     parts.append("</div>")
     return "\n".join(parts)
