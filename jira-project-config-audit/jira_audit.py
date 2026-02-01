@@ -1421,6 +1421,10 @@ def fetch_sr_behaviors(cursor, project_id, project_key):
                 # Compute project/issuetype mapping counts per behavior (detail_id)
                 count_by_detail = _sr_mapping_counts(cursor, mt, link_col_name, m_link_col if link_col_name != 'CONTEXT' else m_tpl_detail, [r.get('detail_id') for r in rows if r.get('detail_id') is not None], link_col_name == 'CONTEXT', m_type if link_col_name == 'CONTEXT' else None)
                 for row in rows:
+                    # Skip nameless behaviors (e.g. default/empty profile) to avoid confusing ghost rows
+                    name_val = row.get('NAME')
+                    if name_val is None or (isinstance(name_val, str) and not name_val.strip()):
+                        continue
                     key = (row['NAME'], (row.get('DESCRIPTION') or ''))
                     if key not in seen:
                         seen.add(key)
@@ -1455,6 +1459,10 @@ def fetch_sr_behaviors(cursor, project_id, project_key):
                 """
                 cursor.execute(q, tuple([project_key] * len(detail_proj_cols)))
                 for row in cursor.fetchall():
+                    # Skip nameless behaviors to avoid confusing ghost rows
+                    name_val = row.get('NAME')
+                    if name_val is None or (isinstance(name_val, str) and not name_val.strip()):
+                        continue
                     key = (row['NAME'], (row.get('DESCRIPTION') or ''))
                     if key not in seen:
                         seen.add(key)
