@@ -73,6 +73,7 @@ python jira_audit.py --instance SBX --project UAT1ESX --summary
 python app.py
 # Open http://localhost:9000
 # Select instance and project key, run audit; view Summary or JSON; use Compare for two audits.
+# After running an audit, use "Download summary (HTML)" or "Download JSON" to save the result for sharing.
 ```
 
 ### API

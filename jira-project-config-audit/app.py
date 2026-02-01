@@ -45,9 +45,12 @@ def index():
     button { padding: 0.5rem 1rem; background: #0052cc; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
     button:hover { background: #0747a6; }
     #result { margin-top: 1.5rem; }
-    .tabs { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; flex-wrap: wrap; }
     .tabs button { background: #ddd; color: #333; }
     .tabs button.active { background: #0052cc; color: #fff; }
+    .tabs .btn-download { margin-left: 0.5rem; background: #6b778c; color: #fff; font-size: 0.9rem; }
+    .tabs .btn-download:hover { background: #42526e; }
+    .tabs .btn-download:disabled { opacity: 0.5; cursor: not-allowed; }
     .panel { display: none; }
     .panel.active { display: block; }
     pre { background: #f4f5f7; padding: 1rem; overflow: auto; max-height: 70vh; border-radius: 4px; white-space: pre-wrap; }
@@ -125,6 +128,8 @@ def index():
     <div class="tabs">
       <button type="button" data-tab="summary" class="active">Summary</button>
       <button type="button" data-tab="json">JSON</button>
+      <button type="button" id="btnDownloadHtml" class="btn-download" disabled title="Download current summary as HTML file">Download summary (HTML)</button>
+      <button type="button" id="btnDownloadJson" class="btn-download" disabled title="Download current audit as JSON file">Download JSON</button>
     </div>
     <div id="panel-summary" class="panel active"><div id="summaryHtml" class="audit-summary"></div><pre id="summaryText" style="display:none;"></pre></div>
     <div id="panel-json" class="panel"><pre id="jsonText"></pre></div>
@@ -135,14 +140,42 @@ def index():
     const summaryHtml = document.getElementById('summaryHtml');
     const summaryPre = document.getElementById('summaryText');
     const jsonPre = document.getElementById('jsonText');
-    const tabs = document.querySelectorAll('.tabs button');
+    const tabs = document.querySelectorAll('.tabs button[data-tab]');
     const panels = document.querySelectorAll('.panel');
+    const btnDownloadHtml = document.getElementById('btnDownloadHtml');
+    const btnDownloadJson = document.getElementById('btnDownloadJson');
+    let lastAudit = null;
+
+    function downloadBlob(blob, filename) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    btnDownloadHtml.addEventListener('click', () => {
+      if (!lastAudit || !lastAudit.summary_html) return;
+      const doc = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Audit summary – ' + (lastAudit.instance + '-' + lastAudit.project) + '</title><style>.audit-summary{font-family:system-ui,sans-serif;max-width:1200px;margin:0 auto;padding:1rem;font-size:0.9rem;}.audit-summary .summary-header{background:linear-gradient(135deg,#172b4d 0%,#253858 100%);color:#fff;padding:1.25rem 1.5rem;margin:-1rem -1rem 1.25rem -1rem;border-radius:8px 8px 0 0;}.audit-summary .summary-section{background:#fff;border:1px solid #dfe1e6;border-radius:8px;padding:1.25rem;margin-bottom:1rem;}.audit-summary table{border-collapse:collapse;width:100%;}.audit-summary th,.audit-summary td{border:1px solid #dfe1e6;padding:0.4rem 0.6rem;text-align:left;}.audit-summary th{background:#f4f5f7;}.audit-summary code{background:#eaecef;padding:0.15rem 0.35rem;border-radius:3px;}</style></head><body><div class="audit-summary">' + lastAudit.summary_html + '</div></body></html>';
+      const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
+      downloadBlob(blob, 'audit-summary-' + lastAudit.instance + '-' + lastAudit.project + '.html');
+    });
+
+    btnDownloadJson.addEventListener('click', () => {
+      if (!lastAudit || !lastAudit.snapshot) return;
+      const str = JSON.stringify(lastAudit.snapshot, null, 2);
+      const blob = new Blob([str], { type: 'application/json;charset=utf-8' });
+      downloadBlob(blob, 'audit-snapshot-' + lastAudit.instance + '-' + lastAudit.project + '.json');
+    });
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const instance = form.instance.value;
       const project = form.project.value.trim();
       if (!instance || !project) return;
+      lastAudit = null;
+      btnDownloadHtml.disabled = true;
+      btnDownloadJson.disabled = true;
       summaryHtml.innerHTML = '<p>Loading…</p>';
       summaryPre.textContent = 'Loading…';
       jsonPre.textContent = 'Loading…';
@@ -150,7 +183,7 @@ def index():
       document.querySelector('#panel-summary').classList.add('active');
       document.querySelector('#panel-json').classList.remove('active');
       tabs[0].classList.add('active');
-      tabs[1].classList.remove('active');
+      if (tabs[1]) tabs[1].classList.remove('active');
       try {
         const r = await fetch('/api/audit?instance=' + encodeURIComponent(instance) + '&project=' + encodeURIComponent(project));
         const data = await r.json();
@@ -161,6 +194,9 @@ def index():
           jsonPre.textContent = JSON.stringify(data, null, 2);
           return;
         }
+        lastAudit = { summary_html: data.summary_html || '', summary: data.summary || '', snapshot: data.snapshot, instance: instance, project: project };
+        btnDownloadHtml.disabled = false;
+        btnDownloadJson.disabled = false;
         if (data.summary_html) {
           summaryHtml.innerHTML = data.summary_html;
           summaryHtml.style.display = 'block';
