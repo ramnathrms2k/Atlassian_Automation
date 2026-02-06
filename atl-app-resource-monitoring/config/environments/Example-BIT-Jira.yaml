@@ -1,0 +1,17 @@
+# Example BIT Jira environment — replace server hostnames and domain with your values
+environment: Example-BIT-Jira
+app_type: jira
+domain: .example.com
+
+servers:
+  - jira-app-bit-01
+  - jira-app-bit-02
+  - jira-app-bit-03
+
+paths:
+  dbconfig: /export/jirahome/dbconfig.xml
+  jira_home: /export/jirahome
+  setenv: /export/jira/bin/setenv.sh
+
+ssh_user: svcjira
+app_port: 8080

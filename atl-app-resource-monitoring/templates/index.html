@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jira App Resource Monitoring</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="header">
+    <h1>Jira App Resource Monitoring</h1>
+    <span class="env-badge" id="env-badge">—</span>
+    <span class="last-updated" id="last-updated"></span>
+  </header>
+
+  <section class="controls">
+    <label class="env-label">
+      Environment:
+      <select id="env-select" class="env-select" title="Choose environment to monitor"></select>
+    </label>
+    <button type="button" class="btn btn-primary" id="btn-refresh" title="Fetch metrics once">Refresh once</button>
+    <button type="button" class="btn btn-secondary" id="btn-monitor" title="Auto-refresh every N seconds">Start monitoring</button>
+    <label class="interval-label">
+      Interval (seconds):
+      <input type="number" id="interval" min="10" max="300" value="60" class="interval-input">
+    </label>
+    <span class="status" id="status"></span>
+  </section>
+
+  <main class="main" id="main">
+    <div class="loading" id="loading">Loading…</div>
+    <div class="section-block" id="app-nodes-section">
+      <h3 class="section-title">App nodes</h3>
+      <div class="server-cards" id="server-cards"></div>
+    </div>
+    <div class="section-block" id="db-nodes-section">
+      <h3 class="section-title">DB nodes</h3>
+      <div class="server-cards" id="db-cards"></div>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

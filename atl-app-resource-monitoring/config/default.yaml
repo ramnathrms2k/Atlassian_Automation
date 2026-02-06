@@ -1,0 +1,17 @@
+# Default settings (override per environment)
+app:
+  port: 9080
+  refresh_interval_seconds: 60
+  ssh_user: svcjira
+  db_ssh_user: null   # null = use ssh_user for DB node SSH
+  ssh_connect_timeout: 10
+  ssh_command_timeout: 30
+
+# Paths on each Jira node (override per environment)
+paths:
+  dbconfig: /export/jirahome/dbconfig.xml
+  jira_home: /export/jirahome
+  setenv: /export/jira/bin/setenv.sh
+
+# Jira application listener port on nodes (for counting incoming connections to app)
+jira_app_port: 8080
