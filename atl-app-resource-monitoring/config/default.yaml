@@ -7,11 +7,15 @@ app:
   ssh_connect_timeout: 10
   ssh_command_timeout: 30
 
-# Paths on each Jira node (override per environment)
+# Paths on each node (override per environment). Log paths used for "last 5 min" metrics.
 paths:
   dbconfig: /export/jirahome/dbconfig.xml
   jira_home: /export/jirahome
   setenv: /export/jira/bin/setenv.sh
+  # Jira: access_log_dir = install logs; app_log_file = jira home log
+  access_log_dir: /export/jira/logs
+  # Jira: jirahome/log; Confluence: confluence-home/logs (plural)
+  app_log_file: /export/jirahome/log/atlassian-jira.log
 
 # Jira application listener port on nodes (for counting incoming connections to app)
 jira_app_port: 8080

@@ -126,6 +126,24 @@
       html += metric('Swap used', (swapTotal > 0 && swapPct != null ? swapPct + '%' : (swapTotal === 0 ? 'N/A' : '—')), swapPct > 80);
       html += metric('Incoming (app port)', String(incoming));
       html += metric('DB connections', String(dbCount));
+      var access5 = s.access_log_5m;
+      if (access5 != null) {
+        var accessLabel = (access5.unique_users != null ? access5.unique_users : '—') + ' users, ' + (access5.request_count != null ? access5.request_count : 0) + ' requests';
+        var accessDetail = null;
+        if (access5.response_time_avg_sec != null) {
+          var parts = [];
+          if (access5.response_time_99p_sec != null) parts.push('99p: ' + access5.response_time_99p_sec + 's');
+          if (access5.response_time_95p_sec != null) parts.push('95p: ' + access5.response_time_95p_sec + 's');
+          if (access5.response_time_90p_sec != null) parts.push('90p: ' + access5.response_time_90p_sec + 's');
+          parts.push('avg: ' + access5.response_time_avg_sec + 's');
+          accessDetail = parts.join(', ');
+        }
+        html += metric('Access log (5m)', accessLabel, false, accessDetail);
+      }
+      var app5 = s.app_log_5m;
+      if (app5 != null) {
+        html += metric('App log (5m)', (app5.unique_threads != null ? app5.unique_threads : '—') + ' threads, ' + (app5.line_count != null ? app5.line_count : 0) + ' lines');
+      }
       html += '</div>';
 
       if (dbHost) {

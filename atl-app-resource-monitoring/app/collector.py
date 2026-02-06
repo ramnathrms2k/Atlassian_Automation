@@ -4,6 +4,8 @@ SSH to Jira app nodes, gather connection counts, DB connections, and system metr
 import os
 import re
 import logging
+import time
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 import paramiko
@@ -199,6 +201,177 @@ def _safe_int(v: Any, default: int = 0) -> int:
         return default
 
 
+# --- Access log: Tomcat format [dd/Mon/yyyy:HH:mm:ss ±HHMM]; Jira = IP ID USER [date]..., Confluence = [date] USER ...
+_ACCESS_LOG_TIMESTAMP = re.compile(r"\[(\d{2}/\w{3}/\d{4}):(\d{2}):(\d{2}):(\d{2})\s*([+-]\d{4})?\]")
+# Log4j app: Confluence "yyyy-MM-dd HH:mm:ss,mmm LEVEL [threadName] ..."; Jira "yyyy-MM-dd HH:mm:ss,mmm±HHMM threadName url: ..." (no brackets)
+_APP_LOG_CONFLUENCE = re.compile(r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d{3})\s+\w+\s+\[([^\]]+)\].*")
+_APP_LOG_JIRA = re.compile(r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d{3})(?:[+-]\d{4})?\s+(\S+)\s+")
+_APP_LOG_ALT = re.compile(r"^(\d{2}\s+\w{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2},\d{3})\s+\[([^\]]+)\].*")
+
+
+def _tz_offset_seconds(tz_str: str | None) -> int:
+    """Parse [+-]HHMM to offset in seconds (e.g. -0800 -> -28800)."""
+    if not tz_str or len(tz_str) < 4:
+        return 0
+    try:
+        sign = -1 if tz_str[0] == "-" else 1
+        h, m = int(tz_str[1:3]), int(tz_str[3:5])
+        return sign * (h * 3600 + m * 60)
+    except ValueError:
+        return 0
+
+
+def _parse_access_log_timestamp_to_epoch(match) -> float | None:
+    """Convert Tomcat access log [dd/Mon/yyyy:HH:mm:ss ±HHMM] to epoch (using TZ from log)."""
+    try:
+        day, mon, year = match.group(1).split("/")
+        h, mi, s = int(match.group(2)), int(match.group(3)), int(match.group(4))
+        tz_str = match.group(5) if match.lastindex >= 5 else None
+        offset_sec = _tz_offset_seconds(tz_str)  # -0800 -> -28800 (PST)
+        dt = datetime(
+            int(year), _MONTH_NUM.get(mon.upper(), 1), int(day), h, mi, s,
+            tzinfo=timezone(timedelta(seconds=offset_sec)),
+        )
+        return dt.timestamp()
+    except (ValueError, KeyError, IndexError):
+        return None
+
+
+def _parse_app_log_timestamp_to_epoch(ts_str: str, default_tz_offset_sec: int | None = None) -> float | None:
+    """Parse app log timestamp to epoch. Supports yyyy-MM-dd HH:mm:ss,mmm and optional ±HHMM suffix.
+    When no suffix (e.g. Confluence logs), use default_tz_offset_sec if provided (e.g. -28800 for PST)."""
+    if not ts_str or not ts_str.strip():
+        return None
+    s = ts_str.strip()
+    try:
+        if re.match(r"\d{4}-\d{2}-\d{2}", s):
+            base = s[:23]
+            dt = datetime.strptime(base, "%Y-%m-%d %H:%M:%S,%f")
+            if len(s) >= 28 and s[23] in "+-" and re.match(r"[+-]\d{4}", s[23:28]):
+                offset_sec = _tz_offset_seconds(s[23:28])
+                dt = dt.replace(tzinfo=timezone(timedelta(seconds=offset_sec)))
+            else:
+                # No suffix: use server TZ (e.g. Confluence) or UTC
+                offset = default_tz_offset_sec if default_tz_offset_sec is not None else 0
+                dt = dt.replace(tzinfo=timezone(timedelta(seconds=offset)))
+            return dt.timestamp()
+        if re.match(r"\d{2}\s+\w{3}", s):
+            dt = datetime.strptime(s[:21], "%d %b %Y %H:%M:%S")
+            offset = default_tz_offset_sec if default_tz_offset_sec is not None else 0
+            return dt.replace(tzinfo=timezone(timedelta(seconds=offset))).timestamp()
+    except ValueError:
+        pass
+    return None
+
+
+# Month name to number for access log
+_MONTH_NUM = {"JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6, "JUL": 7, "AUG": 8, "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12}
+
+
+# Jira: pattern is %s %b %D -> status, bytes, time(ms). So " 200 42 9 " = 200, 42 bytes, 9 ms -> time is group 3
+_ACCESS_LOG_JIRA_RESPONSE_MS = re.compile(r"HTTP/1\.\d\"\s+(\d{3})\s+(\d+|-)\s+(\d+)\s")
+# Confluence: pattern %s %Dms %b -> " 200 15ms 41 " -> time ms is group 2
+_ACCESS_LOG_CONFLUENCE_RESPONSE_MS = re.compile(r"\s(\d{3})\s+(\d+)ms\s+(\d+|-)(?:\s|$)")
+
+
+def _parse_access_log_last_5m(content: str, server_epoch: int, cutoff_epoch: float) -> dict[str, Any]:
+    """
+    Parse access log. Lines with timestamp in [cutoff_epoch, server_epoch].
+    Jira format: IP ID USER [date] "request" status bytes time_ms (pattern %s %b %D) -> response time = 3rd number.
+    Confluence format: [date] USER thread ... status 15ms bytes -> user = first token after ]; response time is Nms.
+    Returns unique_users, request_count, response_time_95p_sec, response_time_avg_sec (when parseable).
+    """
+    unique_users: set[str] = set()
+    request_count = 0
+    response_times_ms: list[int] = []
+    for line in content.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        m = _ACCESS_LOG_TIMESTAMP.search(line)
+        if not m:
+            continue
+        ep = _parse_access_log_timestamp_to_epoch(m)
+        if ep is None or ep < cutoff_epoch:
+            continue
+        request_count += 1
+        # Confluence: line starts with [date], user is first token after ]; response time like "200 15ms 41"
+        if line.startswith("["):
+            rest = line[m.end() :].lstrip()
+            parts = rest.split(None, 1)
+            if parts:
+                user = (parts[0] or "").strip()
+                if user and user != "-":
+                    unique_users.add(user)
+            rm = _ACCESS_LOG_CONFLUENCE_RESPONSE_MS.search(line)
+            if rm:
+                try:
+                    response_times_ms.append(int(rm.group(2)))
+                except (ValueError, IndexError):
+                    pass
+        else:
+            # Jira: IP ID USER [date] "request" status time_ms bytes
+            before_bracket = line[: m.start()].strip()
+            parts = before_bracket.split()
+            if len(parts) >= 3:
+                user = (parts[2] or "").strip()
+                if user and user != "-":
+                    unique_users.add(user)
+            rm = _ACCESS_LOG_JIRA_RESPONSE_MS.search(line)
+            if rm:
+                try:
+                    response_times_ms.append(int(rm.group(3)))  # Jira: status, bytes, time_ms
+                except (ValueError, IndexError):
+                    pass
+    out: dict[str, Any] = {"unique_users": len(unique_users), "request_count": request_count}
+    if response_times_ms:
+        response_times_ms.sort()
+        n = len(response_times_ms)
+        idx_90 = max(0, int((n * 0.90) - 1)) if n else 0
+        idx_95 = max(0, int((n * 0.95) - 1)) if n else 0
+        idx_99 = max(0, int((n * 0.99) - 1)) if n else 0
+        out["response_time_90p_sec"] = round(response_times_ms[idx_90] / 1000.0, 3)
+        out["response_time_95p_sec"] = round(response_times_ms[idx_95] / 1000.0, 3)
+        out["response_time_99p_sec"] = round(response_times_ms[idx_99] / 1000.0, 3)
+        out["response_time_avg_sec"] = round(sum(response_times_ms) / n / 1000.0, 3)
+    return out
+
+
+def _parse_app_log_last_5m(content: str, cutoff_epoch: float, server_tz_offset_sec: int | None = None) -> dict[str, int]:
+    """
+    Parse app log. Confluence: timestamp LEVEL [threadName] (no TZ in timestamp → use server_tz_offset_sec).
+    Jira: timestamp±HHMM threadName (no brackets).
+    """
+    unique_threads: set[str] = set()
+    line_count = 0
+    for line in content.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        # Try Confluence format first (timestamp LEVEL [threadName]) so it gets server TZ; else Jira can match "INFO" as thread
+        m = _APP_LOG_CONFLUENCE.match(line) or _APP_LOG_ALT.match(line)
+        if m:
+            ts_str, thread_name = m.group(1), m.group(2)
+            ep = _parse_app_log_timestamp_to_epoch(ts_str, default_tz_offset_sec=server_tz_offset_sec)
+            if ep is not None and ep >= cutoff_epoch:
+                line_count += 1
+                if thread_name:
+                    unique_threads.add(thread_name)
+            continue
+        m = _APP_LOG_JIRA.match(line)
+        if m:
+            ts_str, thread_name = m.group(1), m.group(2)
+            full_ts = ts_str
+            if len(line) > 28 and line[23] in "+-" and re.match(r"[+-]\d{4}", line[23:28]):
+                full_ts = ts_str + line[23:28]
+            ep = _parse_app_log_timestamp_to_epoch(full_ts)
+            if ep is not None and ep >= cutoff_epoch:
+                line_count += 1
+                if thread_name and not thread_name.startswith("url:"):
+                    unique_threads.add(thread_name)
+    return {"unique_threads": len(unique_threads), "line_count": line_count}
+
+
 def _parse_loadavg(output: str) -> list[float]:
     """Parse /proc/loadavg: first three numbers are 1, 5, 15 min load."""
     parts = output.strip().split()
@@ -325,6 +498,8 @@ def collect_node(host: str, config: dict) -> dict[str, Any]:
         "memory": {},
         "cpu_percent": 0.0,
         "processes": [],
+        "access_log_5m": None,
+        "app_log_5m": None,
         "error": None,
     }
 
@@ -451,6 +626,44 @@ def collect_node(host: str, config: dict) -> dict[str, Any]:
         # No PIDs from ss; try to get java processes
         out, _, _ = _ssh_run(host, user, "pgrep -f 'jira\\|java' 2>/dev/null | head -20 | xargs ps -o pid,rss,%cpu,comm -p 2>/dev/null", timeout)
         result["processes"] = _parse_ps(out)
+
+    # 6b) Access log and app log (last 5 min): unique users / requests, unique threads / lines
+    access_log_dir = paths.get("access_log_dir")
+    app_log_file = paths.get("app_log_file")
+    if app_type == "jira" and not access_log_dir:
+        access_log_dir = "/export/jira/logs"
+    if app_type == "jira" and not app_log_file:
+        app_log_file = "/export/jirahome/log/atlassian-jira.log"
+    if app_type == "confluence" and not access_log_dir:
+        access_log_dir = "/export/confluence/logs"
+    if app_type == "confluence" and not app_log_file:
+        app_log_file = "/export/confluence-home/logs/atlassian-confluence.log"
+    if access_log_dir and app_log_file:
+        try:
+            # Use server time for "now" and server TZ for log lines without timezone (e.g. Confluence app log)
+            out_epoch, _, code_epoch = _ssh_run(host, user, "date +%s; date +%z", timeout)
+            server_epoch = int(time.time())
+            server_tz_offset_sec: int | None = None
+            if code_epoch == 0 and out_epoch:
+                parts = out_epoch.strip().splitlines()
+                if parts and parts[0].strip().isdigit():
+                    server_epoch = int(parts[0].strip())
+                if len(parts) >= 2 and re.match(r"[+-]\d{4}", parts[1].strip()):
+                    server_tz_offset_sec = _tz_offset_seconds(parts[1].strip())
+            cutoff_epoch = float(server_epoch - 300)
+            # Newest access log in dir (access_log*, conf_access_log*, etc.)
+            access_cmd = (
+                f"ACCESS=$(ls -t {access_log_dir}/*access* 2>/dev/null | head -1); "
+                f"if [ -n \"$ACCESS\" ] && [ -r \"$ACCESS\" ]; then tail -n 50000 \"$ACCESS\"; fi"
+            )
+            out_access, _, _ = _ssh_run(host, user, access_cmd, timeout)
+            if out_access:
+                result["access_log_5m"] = _parse_access_log_last_5m(out_access, server_epoch, cutoff_epoch)
+            out_app, _, _ = _ssh_run(host, user, f"tail -n 50000 {app_log_file} 2>/dev/null", timeout)
+            if out_app:
+                result["app_log_5m"] = _parse_app_log_last_5m(out_app, cutoff_epoch, server_tz_offset_sec)
+        except Exception as e:
+            logger.warning("Log metrics failed on %s: %s", host, e)
 
     # 7) JVM heap/non-heap via jstat -gc for each Java PID (use same JVM's jstat via /proc/pid/exe)
     for p in result["processes"]:

@@ -1,0 +1,18 @@
+# BIT-Jira environment: jira-lvn-it-30/31/32
+environment: BIT-Jira
+domain: .lvn.broadcom.net
+
+servers:
+  - jira-lvn-it-30
+  - jira-lvn-it-31
+  - jira-lvn-it-32
+
+paths:
+  dbconfig: /export/jirahome/dbconfig.xml
+  jira_home: /export/jirahome
+  setenv: /export/jira/bin/setenv.sh
+  access_log_dir: /export/jira/logs
+  app_log_file: /export/jirahome/log/atlassian-jira.log
+
+ssh_user: svcjira
+jira_app_port: 8080

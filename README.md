@@ -15,7 +15,7 @@ This folder contains **19 specialized automation frameworks**, each designed for
 - **[vrli_framework](vrli_framework/)** - Hybrid log extraction framework for VMware Aria Operations for Logs (vRLI) with automated field discovery
 - **[vrli_poc](vrli_poc/)** - Proof of concept scripts for vRLI log fetching, analysis, and statistics generation
 - **[jira_logparser](jira_logparser/)** - Comprehensive log analysis framework for Jira access logs and application logs
-- **[atl-app-resource-monitoring](atl-app-resource-monitoring/)** - Flask-based web dashboard for monitoring Jira and Confluence app nodes: connections, DB connections, system and JVM metrics; multi-environment dropdown
+- **[atl-app-resource-monitoring](atl-app-resource-monitoring/)** - Flask-based web dashboard for Jira and Confluence app nodes: connections, DB connections, system and JVM metrics; access and app log metrics (5m window) with response time percentiles (99p/95p/90p/avg); multi-environment dropdown
 - **[jira-health-dashboard](jira-health-dashboard/)** - Flask-based web dashboard for monitoring health and index status of multiple Jira Data Center servers
 - **[comprehensive-jira-health-dashboard](comprehensive-jira-health-dashboard/)** - Comprehensive real-time health monitoring dashboard for Jira Data Center clusters with system metrics, database monitoring, and dual disk usage tracking
 - **[jira-response-time-tracker](jira-response-time-tracker/)** - Flask-based web interface for monitoring slow requests from Jira access logs, grouped by user ID with statistics on count, maximum time, and timestamps
@@ -91,9 +91,9 @@ Most frameworks require:
 - **Documentation**: [README](jira_logparser/README.md)
 
 #### atl-app-resource-monitoring
-- **Purpose**: Resource and connection monitoring for Jira and Confluence Data Center application and DB nodes
-- **Key Features**: Multi-environment dropdown (Jira/Confluence), per-node metrics (load, CPU, memory, JVM heap), incoming and DB connection counts with PIDs, DB node metrics, on-demand and auto-refresh
-- **Use Cases**: Capacity monitoring, connection troubleshooting, cluster health overview, multi-environment visibility
+- **Purpose**: Resource, connection, and log-based monitoring for Jira and Confluence Data Center application and DB nodes
+- **Key Features**: Multi-environment dropdown (Jira/Confluence), per-node metrics (load, CPU, memory, JVM heap), incoming and DB connection counts with PIDs, access log 5m (unique users, requests, 99p/95p/90p/avg response time), app log 5m (unique threads, lines), DB node metrics, on-demand and auto-refresh
+- **Use Cases**: Capacity monitoring, connection troubleshooting, response time and concurrency visibility, cluster health overview, multi-environment visibility
 - **Documentation**: [README](atl-app-resource-monitoring/README.md)
 
 #### jira-health-dashboard

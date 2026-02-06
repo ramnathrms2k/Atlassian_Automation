@@ -1,0 +1,18 @@
+# VMW-Confluence environment: conf-lvnv-it-101/102/103
+environment: VMW-Confluence
+app_type: confluence
+domain: .lvn.broadcom.net
+
+servers:
+  - conf-lvnv-it-101
+  - conf-lvnv-it-102
+  - conf-lvnv-it-103
+
+paths:
+  setenv: /export/confluence/bin/setenv.sh
+  server_xml: /export/confluence/conf/server.xml
+  access_log_dir: /export/confluence/logs
+  app_log_file: /export/confluence-home/logs/atlassian-confluence.log
+
+ssh_user: svcjira
+app_port: 8090
