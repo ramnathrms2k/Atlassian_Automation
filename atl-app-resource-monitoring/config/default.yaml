@@ -2,10 +2,21 @@
 app:
   port: 9080
   refresh_interval_seconds: 60
-  ssh_user: svcjira
+  ssh_user: TOKEN   # Replace with SSH user for app nodes
   db_ssh_user: null   # null = use ssh_user for DB node SSH
   ssh_connect_timeout: 10
   ssh_command_timeout: 30
+
+# Monitoring: always-on background collection per environment; UI is view-only.
+monitoring:
+  csv_directory: data
+  background_environments: []
+  interval_seconds: 60
+  csv_window_minutes: 60
+  z_score:
+    normal_max: 1.75
+    medium_max: 2.75
+    high_max: 2.75
 
 # Paths on each node (override per environment). Log paths used for "last 5 min" metrics.
 paths:

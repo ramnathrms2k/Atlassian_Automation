@@ -1,11 +1,12 @@
-# BIT-Jira environment: jira-lvn-it-30/31/32
+# Example Jira environment — replace placeholders with your hostnames and domain
 environment: BIT-Jira
-domain: .lvn.broadcom.net
+app_type: jira
+domain: .example.com
 
 servers:
-  - jira-lvn-it-30
-  - jira-lvn-it-31
-  - jira-lvn-it-32
+  - jira-app-01
+  - jira-app-02
+  - jira-app-03
 
 paths:
   dbconfig: /export/jirahome/dbconfig.xml
@@ -14,5 +15,5 @@ paths:
   access_log_dir: /export/jira/logs
   app_log_file: /export/jirahome/log/atlassian-jira.log
 
-ssh_user: svcjira
+ssh_user: TOKEN
 jira_app_port: 8080

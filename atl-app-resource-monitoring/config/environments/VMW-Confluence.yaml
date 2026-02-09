@@ -1,12 +1,12 @@
-# VMW-Confluence environment: conf-lvnv-it-101/102/103
+# Example Confluence environment — replace placeholders with your hostnames and domain
 environment: VMW-Confluence
 app_type: confluence
-domain: .lvn.broadcom.net
+domain: .example.com
 
 servers:
-  - conf-lvnv-it-101
-  - conf-lvnv-it-102
-  - conf-lvnv-it-103
+  - conf-app-01
+  - conf-app-02
+  - conf-app-03
 
 paths:
   setenv: /export/confluence/bin/setenv.sh
@@ -14,5 +14,5 @@ paths:
   access_log_dir: /export/confluence/logs
   app_log_file: /export/confluence-home/logs/atlassian-confluence.log
 
-ssh_user: svcjira
+ssh_user: TOKEN
 app_port: 8090
