@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jira App Resource Monitoring</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="header">
+    <h1>Jira App Resource Monitoring</h1>
+    <span class="env-badge" id="env-badge">—</span>
+    <span class="last-updated" id="last-updated"></span>
+  </header>
+
+  <section class="controls">
+    <label class="env-label">
+      Environment:
+      <select id="env-select" class="env-select" title="Choose environment to view"></select>
+    </label>
+    <button type="button" class="btn btn-outline" id="btn-download-csv" title="Download time-series CSV for this environment">Download CSV</button>
+    <span class="status" id="status"></span>
+    <span class="z-legend" id="z-legend" title="Z-score anomaly: green |z|\u22641.75, yellow 1.75\u20132.75, red >2.75" aria-hidden="true"></span>
+  </section>
+
+  <main class="main" id="main">
+    <div class="loading" id="loading">Loading…</div>
+    <div class="section-block" id="app-nodes-section">
+      <h3 class="section-title">App nodes</h3>
+      <div class="server-cards" id="server-cards"></div>
+    </div>
+    <div class="section-block" id="db-nodes-section">
+      <h3 class="section-title">DB nodes</h3>
+      <div class="server-cards" id="db-cards"></div>
+    </div>
+  </main>
+
+  <section class="plot-panel" id="plot-panel" aria-hidden="true">
+    <div class="plot-header">
+      <h3 class="plot-title" id="plot-title">Metric trend</h3>
+      <div class="plot-controls">
+        <label class="plot-range-label">Range:
+          <select id="plot-range" class="plot-range-select" title="Time window">
+            <option value="5">5 min</option>
+            <option value="30">30 min</option>
+            <option value="60">1 hr</option>
+            <option value="120">2 hr</option>
+            <option value="360">6 hr</option>
+            <option value="720">12 hr</option>
+            <option value="1080">18 hr</option>
+            <option value="1440">1 day</option>
+            <option value="2880">2 days</option>
+            <option value="10080">1 week</option>
+            <option value="43200">1 month</option>
+            <option value="custom">Custom window</option>
+          </select>
+        </label>
+        <div id="plot-custom-range" class="plot-custom-range" aria-hidden="true">
+          <label class="plot-custom-label">From: <input type="datetime-local" id="plot-custom-start" class="plot-datetime-input" title="Start time"></label>
+          <label class="plot-custom-label">To: <input type="datetime-local" id="plot-custom-end" class="plot-datetime-input" title="End time"></label>
+          <button type="button" class="btn btn-outline" id="plot-custom-apply" title="Apply custom range">Apply</button>
+        </div>
+        <label class="plot-mode-label">Plot:
+          <select id="plot-mode" class="plot-mode-select" title="Actual value or Z-score">
+            <option value="value">Actual</option>
+            <option value="z">Z-Score</option>
+          </select>
+        </label>
+        <button type="button" class="btn btn-outline" id="plot-collapse" title="Collapse">Collapse</button>
+      </div>
+    </div>
+    <div class="plot-body">
+      <canvas id="plot-canvas"></canvas>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

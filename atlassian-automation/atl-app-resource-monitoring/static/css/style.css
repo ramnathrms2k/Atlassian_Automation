@@ -110,6 +110,16 @@ body {
   background: rgba(248, 81, 73, 0.15);
 }
 
+.btn-outline {
+  border-color: var(--text-muted);
+  color: var(--text-muted);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: var(--border);
+  color: var(--text);
+}
+
 .env-label {
   color: var(--text-muted);
   font-size: 0.85rem;
@@ -149,6 +159,12 @@ body {
   color: var(--text-muted);
 }
 
+.z-legend {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: 0.5rem;
+}
+
 .main {
   padding: 1.5rem;
   max-width: 1600px;
@@ -157,6 +173,23 @@ body {
 
 .section-block {
   margin-bottom: 2rem;
+}
+
+.global-metrics-wrap {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-width: 640px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.global-metrics-wrap .metric {
+  min-width: 200px;
 }
 
 .section-title {
@@ -237,6 +270,10 @@ body {
   font-weight: 600;
 }
 
+.metric-value.apdex-score {
+  font-size: 1.5rem;
+}
+
 .metric-value.warn {
   color: var(--warning);
 }
@@ -245,11 +282,54 @@ body {
   color: var(--danger);
 }
 
+/* Z-score heat map (monitoring mode): font color by anomaly level; configurable via config default.yaml */
+.metric-value.z-normal {
+  color: var(--success);
+}
+.metric-value.z-medium {
+  color: #d4a72c;
+}
+.metric-value.z-high {
+  color: var(--warning);
+}
+.metric-value.z-extreme {
+  color: var(--danger);
+  font-weight: 700;
+}
+
 .metric-detail {
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: 0.2rem;
 }
+
+.metric-detail-num {
+  font-weight: 600;
+}
+.metric-detail-num.z-normal { color: var(--success); }
+.metric-detail-num.z-medium { color: #d4a72c; }
+.metric-detail-num.z-high { color: var(--warning); }
+.metric-detail-num.z-extreme { color: var(--danger); font-weight: 700; }
+
+/* Trend: recent movement (before number) = neutral; prediction (after number) = color by expected direction */
+.metric-trend-recent {
+  margin-right: 0.15em;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.metric-trend-pred {
+  margin-left: 0.15em;
+  font-size: inherit;
+  font-weight: 600;
+}
+.metric-trend-pred.pred-improve { color: var(--success); }
+.metric-trend-pred.pred-worsen { color: var(--danger); }
+.metric-trend-pred.pred-neutral { color: var(--warning); }
+.metric-value .metric-trend-recent,
+.metric-value .metric-trend-pred { font-size: inherit; }
+.metric-detail .metric-trend-recent,
+.metric-detail .metric-trend-pred { font-size: inherit; }
 
 .db-info {
   padding: 0 1.25rem 0.5rem;
@@ -288,4 +368,114 @@ tr:hover td {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-muted);
+}
+
+/* Plot panel (below main) */
+.plot-panel {
+  margin: 0 auto 1.5rem;
+  max-width: 1600px;
+  padding: 0 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.plot-panel[aria-hidden="true"] {
+  display: none;
+}
+
+.plot-panel.collapsed .plot-body {
+  display: none;
+}
+
+.plot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.plot-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.plot-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.plot-range-label,
+.plot-mode-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.plot-range-select,
+.plot-mode-select {
+  margin-left: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.plot-custom-range {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.plot-custom-range[aria-hidden="true"] {
+  display: none;
+}
+
+.plot-custom-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.plot-datetime-input {
+  margin-left: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.plot-body {
+  padding: 1rem;
+  min-height: 280px;
+  background: #1a1a2e;
+  border-radius: 8px;
+}
+
+#plot-canvas {
+  width: 100%;
+  max-height: 400px;
+  background: transparent;
+}
+
+.metric[data-column-key] {
+  cursor: pointer;
+}
+
+.metric-detail-num[data-column-key] {
+  cursor: pointer;
 }

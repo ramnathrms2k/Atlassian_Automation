@@ -16,25 +16,44 @@ from app.config_loader import get_config, get_servers_full_hostnames
 logger = logging.getLogger(__name__)
 
 
+# Transient SSH errors (e.g. connection reset after VPN reconnect) — we retry on these.
+_SSH_RETRY_EXCEPTIONS = (
+    ConnectionResetError,
+    ConnectionError,
+    OSError,
+    paramiko.SSHException,
+)
+
 def _ssh_run(host: str, user: str, command: str, timeout: int = 30) -> tuple[str, str, int]:
-    """Run command over SSH; return (stdout, stderr, exit_code)."""
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    try:
-        client.connect(
-            host,
-            username=user,
-            timeout=10,
-            allow_agent=True,
-            look_for_keys=True,
-        )
-        _, stdout, stderr = client.exec_command(command, timeout=timeout)
-        out = stdout.read().decode("utf-8", errors="replace")
-        err = stderr.read().decode("utf-8", errors="replace")
-        code = stdout.channel.recv_exit_status()
-        return (out, err, code)
-    finally:
-        client.close()
+    """Run command over SSH; return (stdout, stderr, exit_code). Retries on transient connection errors."""
+    last_exc = None
+    for attempt in range(1, 4):  # up to 3 attempts
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            client.connect(
+                host,
+                username=user,
+                timeout=10,
+                allow_agent=True,
+                look_for_keys=True,
+            )
+            _, stdout, stderr = client.exec_command(command, timeout=timeout)
+            out = stdout.read().decode("utf-8", errors="replace")
+            err = stderr.read().decode("utf-8", errors="replace")
+            code = stdout.channel.recv_exit_status()
+            return (out, err, code)
+        except _SSH_RETRY_EXCEPTIONS as e:
+            last_exc = e
+            if attempt < 3:
+                logger.debug("SSH %s attempt %d failed: %s; retrying in 2s", host, attempt, e)
+                time.sleep(2)
+        finally:
+            try:
+                client.close()
+            except Exception:
+                pass
+    raise last_exc
 
 
 def _get_dbconfig_remote(host: str, user: str, path: str, timeout: int) -> str:
@@ -323,7 +342,11 @@ def _parse_access_log_last_5m(content: str, server_epoch: int, cutoff_epoch: flo
                     response_times_ms.append(int(rm.group(3)))  # Jira: status, bytes, time_ms
                 except (ValueError, IndexError):
                     pass
-    out: dict[str, Any] = {"unique_users": len(unique_users), "request_count": request_count}
+    out: dict[str, Any] = {
+        "unique_users": len(unique_users),
+        "unique_user_names": list(unique_users),
+        "request_count": request_count,
+    }
     if response_times_ms:
         response_times_ms.sort()
         n = len(response_times_ms)
@@ -334,6 +357,14 @@ def _parse_access_log_last_5m(content: str, server_epoch: int, cutoff_epoch: flo
         out["response_time_95p_sec"] = round(response_times_ms[idx_95] / 1000.0, 3)
         out["response_time_99p_sec"] = round(response_times_ms[idx_99] / 1000.0, 3)
         out["response_time_avg_sec"] = round(sum(response_times_ms) / n / 1000.0, 3)
+        # Apdex: satisfied <2s, neutral 2-5s, not satisfied >5s; score = (satisfied + 0.5*neutral) / total
+        satisfied = sum(1 for t in response_times_ms if t < 2000)
+        neutral = sum(1 for t in response_times_ms if 2000 <= t <= 5000)
+        unsatisfied = sum(1 for t in response_times_ms if t > 5000)
+        out["apdex_satisfied"] = satisfied
+        out["apdex_neutral"] = neutral
+        out["apdex_unsatisfied"] = unsatisfied
+        out["apdex"] = round((satisfied + 0.5 * neutral) / n, 4) if n else None
     return out
 
 
@@ -786,9 +817,70 @@ def collect_all(config: dict = None) -> dict[str, Any]:
                 "incoming_connections": 0,
                 "error": str(e),
             })
+    # Global Apdex: sum satisfied/neutral/unsatisfied across all app nodes
+    apdex_satisfied = 0
+    apdex_neutral = 0
+    apdex_unsatisfied = 0
+    for r in results:
+        a5 = r.get("access_log_5m")
+        if not a5:
+            continue
+        apdex_satisfied += int(a5.get("apdex_satisfied") or 0)
+        apdex_neutral += int(a5.get("apdex_neutral") or 0)
+        apdex_unsatisfied += int(a5.get("apdex_unsatisfied") or 0)
+    total_apdex = apdex_satisfied + apdex_neutral + apdex_unsatisfied
+    apdex_global = None
+    if total_apdex > 0:
+        apdex_global = {
+            "apdex_satisfied": apdex_satisfied,
+            "apdex_neutral": apdex_neutral,
+            "apdex_unsatisfied": apdex_unsatisfied,
+            "apdex": round((apdex_satisfied + 0.5 * apdex_neutral) / total_apdex, 4),
+        }
+
+    # Global Access log (5m): cumulative requests; union of unique users across nodes; request-weighted percentiles and avg
+    total_requests = 0
+    all_unique_users: set[str] = set()
+    weighted_99 = 0.0
+    weighted_95 = 0.0
+    weighted_90 = 0.0
+    weighted_avg = 0.0
+    for r in results:
+        a5 = r.get("access_log_5m")
+        if not a5:
+            continue
+        rc = int(a5.get("request_count") or 0)
+        total_requests += rc
+        names = a5.get("unique_user_names")
+        if isinstance(names, (list, set)):
+            all_unique_users.update(names)
+        else:
+            pass  # old format without names: cannot merge, leave all_unique_users as-is for this node
+        if rc > 0:
+            rt99 = float(a5.get("response_time_99p_sec") or 0)
+            rt95 = float(a5.get("response_time_95p_sec") or 0)
+            rt90 = float(a5.get("response_time_90p_sec") or 0)
+            rtav = float(a5.get("response_time_avg_sec") or 0)
+            weighted_99 += rc * rt99
+            weighted_95 += rc * rt95
+            weighted_90 += rc * rt90
+            weighted_avg += rc * rtav
+    access_log_5m_global = None
+    if total_requests > 0:
+        access_log_5m_global = {
+            "request_count": total_requests,
+            "unique_users": len(all_unique_users),
+            "response_time_99p_sec": round(weighted_99 / total_requests, 3),
+            "response_time_95p_sec": round(weighted_95 / total_requests, 3),
+            "response_time_90p_sec": round(weighted_90 / total_requests, 3),
+            "response_time_avg_sec": round(weighted_avg / total_requests, 3),
+        }
+
     return {
         "environment": cfg.get("environment", "default"),
         "refresh_interval_seconds": cfg.get("app", {}).get("refresh_interval_seconds", 60),
         "servers": results,
         "db_nodes": db_nodes,
+        "apdex_global": apdex_global,
+        "access_log_5m_global": access_log_5m_global,
     }

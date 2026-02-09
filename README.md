@@ -15,7 +15,7 @@ This folder contains **19 specialized automation frameworks**, each designed for
 - **[vrli_framework](vrli_framework/)** - Hybrid log extraction framework for VMware Aria Operations for Logs (vRLI) with automated field discovery
 - **[vrli_poc](vrli_poc/)** - Proof of concept scripts for vRLI log fetching, analysis, and statistics generation
 - **[jira_logparser](jira_logparser/)** - Comprehensive log analysis framework for Jira access logs and application logs
-- **[atl-app-resource-monitoring](atl-app-resource-monitoring/)** - Flask-based monitoring for Jira and Confluence app nodes: always-on background collection, time-series CSV per environment, Z-score heat map, trend/prediction arrows, Apdex and global access-log metrics (5m), view-only UI with plots and CSV download; multi-environment dropdown
+- **[atl-app-resource-monitoring](atlassian-automation/atl-app-resource-monitoring/)** - Flask-based monitoring for Jira and Confluence app nodes: always-on background collection, time-series CSV per environment, Z-score heat map, trend/prediction arrows, Apdex and global access-log metrics (5m), view-only UI with plots and CSV download; multi-environment dropdown
 - **[jira-health-dashboard](jira-health-dashboard/)** - Flask-based web dashboard for monitoring health and index status of multiple Jira Data Center servers
 - **[comprehensive-jira-health-dashboard](comprehensive-jira-health-dashboard/)** - Comprehensive real-time health monitoring dashboard for Jira Data Center clusters with system metrics, database monitoring, and dual disk usage tracking
 - **[jira-response-time-tracker](jira-response-time-tracker/)** - Flask-based web interface for monitoring slow requests from Jira access logs, grouped by user ID with statistics on count, maximum time, and timestamps
@@ -94,7 +94,7 @@ Most frameworks require:
 - **Purpose**: Resource, connection, and log-based monitoring for Jira and Confluence Data Center application and DB nodes
 - **Key Features**: Always-on background collection with time-series CSV per environment; Z-score heat map and trend/prediction arrows; Apdex (per-node and global) and global access-log metrics (5m: unique users, request count, 99p/95p/90p/avg response time); view-only UI with plots and CSV download; multi-environment dropdown; SSH retry for transient failures; configurable storage and cleanup (see `docs/STORAGE_GROWTH.md`)
 - **Use Cases**: Capacity monitoring, connection troubleshooting, response time and Apdex visibility, cluster health overview, multi-environment visibility, corporate-server deployment (screen/nohup/gunicorn)
-- **Documentation**: [README](atl-app-resource-monitoring/README.md)
+- **Documentation**: [README](atlassian-automation/atl-app-resource-monitoring/README.md)
 
 #### jira-health-dashboard
 - **Purpose**: Real-time health monitoring dashboard for Jira Data Center clusters
@@ -272,14 +272,13 @@ Most frameworks require:
 
 ```
 atlassian-automation/
-├── README.md                          # This file - overview of all frameworks
-├── .gitignore                         # Git ignore rules for common files
+├── README.md                          # Overview of all frameworks in this folder
+├── atl-app-resource-monitoring/       # Jira & Confluence app/DB resource and connection monitoring
 ├── jira_load_test_framework/         # Load testing framework
 ├── vrli_framework/                    # vRLI log extraction framework
 ├── vrli_poc/                          # vRLI proof of concept scripts
 ├── jira_logparser/                    # Jira log analysis framework
-├── atl-app-resource-monitoring/       # Jira & Confluence app/DB resource and connection monitoring
-├── jira-health-dashboard/             # Jira health monitoring dashboard
+├── jira-health-dashboard/            # Jira health monitoring dashboard
 ├── comprehensive-jira-health-dashboard/ # Comprehensive Jira health monitoring dashboard
 ├── jira-response-time-tracker/        # Jira response time tracking dashboard
 ├── jira_preflight_validator/          # Pre-deployment validation
