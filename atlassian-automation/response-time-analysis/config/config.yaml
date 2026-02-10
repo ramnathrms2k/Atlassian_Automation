@@ -1,0 +1,59 @@
+# Response Time Analysis - Configuration
+# All paths, hosts, and log patterns are variabilized for reuse across Jira/Confluence or other Tomcat apps.
+# Replace TOKEN, .example.com, and host names with your environment values before use.
+
+# SSH settings (used for all products)
+ssh_user: "TOKEN"
+ssh_timeout_seconds: 15
+ssh_options: ["-o", "StrictHostKeyChecking=no"]
+
+# Products: each has display name, nodes, and log format
+products:
+  jira:
+    display_name: "VMW-Jira"
+    domain: ".example.com"
+    nodes:
+      - name: "jira-host-01"
+        hostname: "jira-host-01.example.com"
+        log_path: "/export/jira/logs"
+        log_file_pattern: "access_log.%Y-%m-%d"
+        server_xml_path: "/export/jira/conf/server.xml"
+      - name: "jira-host-02"
+        hostname: "jira-host-02.example.com"
+        log_path: "/export/jira/logs"
+        log_file_pattern: "access_log.%Y-%m-%d"
+        server_xml_path: "/export/jira/conf/server.xml"
+      - name: "jira-host-03"
+        hostname: "jira-host-03.example.com"
+        log_path: "/export/jira/logs"
+        log_file_pattern: "access_log.%Y-%m-%d"
+        server_xml_path: "/export/jira/conf/server.xml"
+
+  confluence:
+    display_name: "VMW-Confluence"
+    domain: ".example.com"
+    log_pattern_type: "confluence"
+    nodes:
+      - name: "conf-host-01"
+        hostname: "conf-host-01.example.com"
+        log_path: "/export/confluence/logs"
+        log_file_pattern: "conf_access_log.%Y-%m-%d.log"
+        server_xml_path: "/export/confluence/conf/server.xml"
+      - name: "conf-host-02"
+        hostname: "conf-host-02.example.com"
+        log_path: "/export/confluence/logs"
+        log_file_pattern: "conf_access_log.%Y-%m-%d.log"
+        server_xml_path: "/export/confluence/conf/server.xml"
+      - name: "conf-host-03"
+        hostname: "conf-host-03.example.com"
+        log_path: "/export/confluence/logs"
+        log_file_pattern: "conf_access_log.%Y-%m-%d.log"
+        server_xml_path: "/export/confluence/conf/server.xml"
+
+# Log format: Tomcat AccessLogValve pattern type
+log_pattern_type: "common_with_D"
+
+# Defaults for UI
+default_days: 1
+default_z_threshold: 2.0
+flask_port: 9090

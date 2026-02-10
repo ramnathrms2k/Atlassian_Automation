@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Response Time Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f1419;
+            --surface: #1a2332;
+            --border: #2d3a4d;
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+            --accent-hover: #79b8ff;
+            --success: #3fb950;
+            --danger: #f85149;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+        }
+        .container { max-width: 1600px; margin: 0 auto; }
+        h1 { font-size: 1.5rem; color: var(--text); margin-bottom: 4px; }
+        .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; }
+        .tabs { display: flex; gap: 0; margin-bottom: 0; border-bottom: 1px solid var(--border); }
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            background: transparent;
+            color: var(--muted);
+            border: none;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); margin-bottom: -1px; background: var(--surface); }
+        .panel { display: none; padding: 24px; background: var(--surface); border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; }
+        .panel.active { display: block; }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .form-group label { display: block; color: var(--muted); font-size: 0.8rem; margin-bottom: 4px; }
+        .form-group input, .form-group select { width: 100%; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 4px; font-family: inherit; }
+        .form-group input[type="number"] { width: 100%; }
+        .form-group select[multiple] { min-height: 80px; }
+        .btn {
+            padding: 10px 20px;
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            border-radius: 4px;
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn:hover { background: var(--accent-hover); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-danger:hover { filter: brightness(1.1); }
+        .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+        .message { padding: 10px; border-radius: 4px; margin: 10px 0; font-size: 0.9rem; }
+        .message.error { background: rgba(248,81,73,0.15); color: var(--danger); }
+        .message.success { background: rgba(63,185,80,0.15); color: var(--success); }
+        .message.info { background: rgba(88,166,255,0.15); color: var(--accent); }
+        .table-wrap { overflow-x: auto; max-height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; margin: 16px 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+        td { max-width: 320px; word-wrap: break-word; word-break: break-word; overflow-wrap: break-word; white-space: normal; }
+        th { background: var(--bg); color: var(--muted); position: sticky; top: 0; z-index: 1; }
+        tr:hover { background: rgba(88,166,255,0.06); }
+        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        @media (max-width: 900px) { .charts { grid-template-columns: 1fr; } }
+        .chart-container { position: relative; height: 280px; background: var(--bg); border-radius: 4px; padding: 12px; }
+        .no-data { text-align: center; padding: 40px; color: var(--muted); }
+        .live-status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+        .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100%{ opacity:1 } 50%{ opacity:0.5 } }
+        .summary-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+        @media (max-width: 700px) { .summary-boxes { grid-template-columns: 1fr; } }
+        .summary-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 14px; }
+        .summary-box h3 { margin: 0 0 10px 0; font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .summary-box .metric { display: inline; margin-right: 8px; }
+        .summary-box .clickable { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; }
+        .summary-box .clickable:hover { color: var(--accent); }
+        .summary-box .val-green { color: var(--success); }
+        .summary-box .val-red { color: var(--danger); }
+        .plot-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; }
+        .plot-controls label { color: var(--muted); font-size: 0.85rem; }
+        .plot-controls select { padding: 6px 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 4px; font-family: inherit; }
+        .plot-section { margin-top: 16px; }
+        .plot-note { color: var(--muted); font-size: 0.75rem; margin-top: 4px; }
+        .lists-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+        @media (max-width: 700px) { .lists-row { grid-template-columns: 1fr; } }
+        .scroll-list-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; }
+        .scroll-list-box h4 { margin: 0 0 8px 0; font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .scroll-list { max-height: 180px; overflow-y: auto; overflow-x: hidden; font-size: 0.8rem; }
+        .scroll-list div { padding: 4px 6px; border-bottom: 1px solid var(--border); word-break: break-all; }
+        .scroll-list div:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Response Time Analysis</h1>
+        <p class="subtitle">Analyze access logs by user/URI, response time &amp; Z-score anomaly detection · On-demand or live tail</p>
+
+        <div class="tabs">
+            <button type="button" class="tab active" data-tab="on-demand">On-Demand</button>
+            <button type="button" class="tab" data-tab="live">Live</button>
+        </div>
+
+        <!-- On-Demand panel -->
+        <div id="panel-on-demand" class="panel active">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Product</label>
+                    <select id="od-product">
+                        {% for p in product_list %}
+                        <option value="{{ p.id }}">{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Nodes (empty = all)</label>
+                    <select id="od-nodes" multiple></select>
+                </div>
+                <div class="form-group">
+                    <label>From date</label>
+                    <input type="date" id="od-from">
+                </div>
+                <div class="form-group">
+                    <label>To date</label>
+                    <input type="date" id="od-to">
+                </div>
+                <div class="form-group">
+                    <label>Or last N days</label>
+                    <input type="number" id="od-days" value="{{ default_days }}" min="1" max="31">
+                </div>
+                <div class="form-group">
+                    <label>User filter (substring)</label>
+                    <input type="text" id="od-user" placeholder="e.g. jdoe">
+                </div>
+                <div class="form-group">
+                    <label>URI filter (substring)</label>
+                    <input type="text" id="od-uri" placeholder="e.g. /rest/api">
+                </div>
+                <div class="form-group">
+                    <label>Scope</label>
+                    <select id="od-cumulative">
+                        <option value="1">Cumulative (all nodes, sorted by time)</option>
+                        <option value="0">Per-node</option>
+                    </select>
+                </div>
+            </div>
+            <div class="actions">
+                <button type="button" class="btn" id="od-run">Run analysis</button>
+                <button type="button" class="btn" id="od-download-csv" style="display:none">Download CSV</button>
+            </div>
+            <div id="od-message"></div>
+            <div id="od-results" style="display:none">
+                <div class="summary-boxes" id="od-summary-boxes"></div>
+                <div class="lists-row">
+                    <div class="scroll-list-box">
+                        <h4>Users (<span id="od-users-count">0</span>)</h4>
+                        <div class="scroll-list" id="od-users-list"></div>
+                    </div>
+                    <div class="scroll-list-box">
+                        <h4>URIs (<span id="od-uris-count">0</span>)</h4>
+                        <div class="scroll-list" id="od-uris-list"></div>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table id="od-table">
+                        <thead><tr id="od-thead"></tr></thead>
+                        <tbody id="od-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="plot-section">
+                    <div class="plot-controls">
+                        <label>Range:</label>
+                        <select id="od-range">
+                            <option value="all" selected>All</option>
+                            <option value="5m">5 min</option>
+                            <option value="30m">30 min</option>
+                            <option value="1h">1 hr</option>
+                            <option value="2h">2 hr</option>
+                            <option value="6h">6 hr</option>
+                            <option value="12h">12 hr</option>
+                            <option value="18h">18 hr</option>
+                            <option value="1d">1 day</option>
+                            <option value="2d">2 days</option>
+                            <option value="1w">1 week</option>
+                            <option value="1M">1 month</option>
+                        </select>
+                        <label>Plot:</label>
+                        <select id="od-plot-type">
+                            <option value="actual">Actual</option>
+                            <option value="zscore">Z-Score</option>
+                        </select>
+                        <button type="button" class="btn" id="od-plot-toggle">Collapse</button>
+                    </div>
+                    <p class="plot-note">Chart shows per-request values only (response time or z-score). Summary box numbers filter which requests are included; percentiles and APDEX score are aggregates, not plotted.</p>
+                    <div class="charts" id="od-charts">
+                        <div class="chart-container"><canvas id="chart-od"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live panel -->
+        <div id="panel-live" class="panel">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Product</label>
+                    <select id="live-product">
+                        {% for p in product_list %}
+                        <option value="{{ p.id }}">{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Nodes (empty = all)</label>
+                    <select id="live-nodes" multiple></select>
+                </div>
+                <div class="form-group">
+                    <label>User filter</label>
+                    <input type="text" id="live-user" placeholder="e.g. jdoe">
+                </div>
+                <div class="form-group">
+                    <label>URI filter</label>
+                    <input type="text" id="live-uri" placeholder="e.g. /rest/api">
+                </div>
+            </div>
+            <div class="actions">
+                <button type="button" class="btn" id="live-start">Start live tail</button>
+                <button type="button" class="btn btn-danger" id="live-stop" style="display:none">Stop</button>
+                <button type="button" class="btn" id="live-download-csv" style="display:none">Download CSV</button>
+                <span class="live-status" id="live-status" style="display:none"><span class="live-dot"></span> Tailing logs...</span>
+            </div>
+            <div id="live-message"></div>
+            <div id="live-results" style="display:none">
+                <div class="summary-boxes" id="live-summary-boxes"></div>
+                <div class="lists-row">
+                    <div class="scroll-list-box">
+                        <h4>Users (<span id="live-users-count">0</span>)</h4>
+                        <div class="scroll-list" id="live-users-list"></div>
+                    </div>
+                    <div class="scroll-list-box">
+                        <h4>URIs (<span id="live-uris-count">0</span>)</h4>
+                        <div class="scroll-list" id="live-uris-list"></div>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table id="live-table">
+                        <thead><tr id="live-thead"></tr></thead>
+                        <tbody id="live-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="plot-section">
+                    <div class="plot-controls">
+                        <label>Range:</label>
+                        <select id="live-range">
+                            <option value="all" selected>All</option>
+                            <option value="5m">5 min</option>
+                            <option value="30m">30 min</option>
+                            <option value="1h">1 hr</option>
+                            <option value="2h">2 hr</option>
+                            <option value="6h">6 hr</option>
+                            <option value="12h">12 hr</option>
+                            <option value="18h">18 hr</option>
+                            <option value="1d">1 day</option>
+                            <option value="2d">2 days</option>
+                            <option value="1w">1 week</option>
+                            <option value="1M">1 month</option>
+                        </select>
+                        <label>Plot:</label>
+                        <select id="live-plot-type">
+                            <option value="actual">Actual</option>
+                            <option value="zscore">Z-Score</option>
+                        </select>
+                        <button type="button" class="btn" id="live-plot-toggle">Collapse</button>
+                    </div>
+                    <p class="plot-note">Chart shows per-request values only (response time or z-score). Summary box numbers filter which requests are included; percentiles and APDEX score are aggregates, not plotted.</p>
+                    <div class="charts" id="live-charts">
+                        <div class="chart-container"><canvas id="chart-live"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nodesByProduct = {{ nodes_by_product | safe }};
+        const defaultDays = {{ default_days }};
+
+        function setTodayDates() {
+            const t = new Date();
+            const y = t.getFullYear(), m = String(t.getMonth() + 1).padStart(2, '0'), d = String(t.getDate()).padStart(2, '0');
+            document.getElementById('od-to').value = `${y}-${m}-${d}`;
+            document.getElementById('od-from').value = document.getElementById('od-to').value;
+        }
+        setTodayDates();
+
+        function fillNodeSelect(productSelectId, nodesSelectId) {
+            const productId = document.getElementById(productSelectId).value;
+            const nodes = nodesByProduct[productId] || [];
+            const sel = document.getElementById(nodesSelectId);
+            sel.innerHTML = nodes.map(n => `<option value="${n}">${n}</option>`).join('');
+        }
+        document.getElementById('od-product').addEventListener('change', () => fillNodeSelect('od-product', 'od-nodes'));
+        document.getElementById('live-product').addEventListener('change', () => fillNodeSelect('live-product', 'live-nodes'));
+        fillNodeSelect('od-product', 'od-nodes');
+        fillNodeSelect('live-product', 'live-nodes');
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+            });
+        });
+
+
+        function showMessage(elId, text, type) {
+            const el = document.getElementById(elId);
+            el.style.display = text ? 'block' : 'none';
+            el.textContent = text;
+            el.className = 'message ' + (type || 'info');
+        }
+
+        const RANGE_MS = { '5m':5*60*1000, '30m':30*60*1000, '1h':60*60*1000, '2h':2*60*60*1000, '6h':6*60*60*1000, '12h':12*60*60*1000, '18h':18*60*60*1000, '1d':24*60*60*1000, '2d':2*24*60*60*1000, '1w':7*24*60*60*1000, '1M':30*24*60*60*1000 };
+        const COL_LABELS = { timestamp:'timestamp', node:'node', user:'user', uri:'URI', response_time_ms:'response_time_ms', z_score:'Anomaly Score', apdex_category:'apdex_category' };
+
+        let odFullRows = [];
+        let odSummary = {};
+        let odMetricFilter = 'all';
+        let odChartSingle = null;
+
+        function parseTs(s) { if (!s) return 0; const [d,t] = s.split(' '); if (!d || !t) return 0; const [y,m,day] = d.split('-').map(Number); const [h,min,sec] = t.split(':').map(Number); return new Date(y,m-1,day,h,min,sec||0).getTime(); }
+
+        function filterByTimeRange(rows, rangeKey) {
+            if (!rows.length) return rows;
+            if (rangeKey === 'all') return rows;
+            const ms = RANGE_MS[rangeKey];
+            if (!ms) return rows;
+            const maxTs = Math.max(...rows.map(r => parseTs(r.timestamp)));
+            const minTs = maxTs - ms;
+            return rows.filter(r => parseTs(r.timestamp) >= minTs);
+        }
+
+        function applyRangeOptionsToSelect(selectId, rows) {
+            const sel = document.getElementById(selectId);
+            if (!sel || !rows.length) return;
+            const maxTs = Math.max(...rows.map(r => parseTs(r.timestamp)));
+            const minTs = Math.min(...rows.map(r => parseTs(r.timestamp)));
+            const dataSpanMs = maxTs - minTs;
+            const opts = sel.querySelectorAll('option');
+            opts.forEach(opt => {
+                const v = opt.value;
+                if (v === 'all') { opt.disabled = false; return; }
+                const rangeMs = RANGE_MS[v];
+                opt.disabled = !!(rangeMs && rangeMs > dataSpanMs);
+            });
+            sel.value = 'all';
+        }
+
+        function filterByMetric(rows, summary, filterKey) {
+            if (filterKey === 'all' || !rows.length) return rows;
+            if (filterKey === 'satisfied') return rows.filter(r => r.apdex_category === 'satisfied');
+            if (filterKey === 'neutral') return rows.filter(r => r.apdex_category === 'neutral');
+            if (filterKey === 'not_satisfied') return rows.filter(r => r.apdex_category === 'not_satisfied');
+            const al = summary && summary.access_log;
+            if (!al) return rows;
+            if (filterKey === 'p99') return rows.filter(r => (r.response_time_ms || 0) >= al.p99_ms);
+            if (filterKey === 'p95') return rows.filter(r => (r.response_time_ms || 0) >= al.p95_ms);
+            if (filterKey === 'p90') return rows.filter(r => (r.response_time_ms || 0) >= al.p90_ms);
+            return rows;
+        }
+
+        function buildSummaryBoxes(containerId, summary, isPerNode, perNodeSummary) {
+            const el = document.getElementById(containerId);
+            if (!summary || !summary.access_log) { el.innerHTML = ''; return; }
+            const al = summary.access_log;
+            const ap = summary.apdex || {};
+            const p99Class = (al.p99_ms || 0) > 5000 ? 'val-red' : 'val-green';
+            const p95Class = (al.p95_ms || 0) > 5000 ? 'val-red' : 'val-green';
+            const p90Class = (al.p90_ms || 0) > 2000 ? 'val-red' : 'val-green';
+            const avgClass = (al.avg_ms || 0) > 2000 ? 'val-red' : 'val-green';
+            const apdexClass = (ap.score || 0) >= 0.85 ? 'val-green' : (ap.score || 0) >= 0.5 ? '' : 'val-red';
+            let html = '<div class="summary-box"><h3>Access Log</h3><span class="metric">';
+            html += `<span class="clickable" data-filter="users" title="Filter plot: show all (users count is aggregate)">${al.users}</span> users → </span>`;
+            html += `<span class="metric"><span class="clickable" data-filter="all" title="Filter plot: show all requests">${al.requests}</span> requests → </span>`;
+            html += `<span class="metric"><span class="clickable" data-filter="uris" title="Filter plot: show all (URIs count is aggregate)">${al.uris}</span> URIs</span><br><br>`;
+            html += `99p: <span class="clickable ${p99Class}" data-filter="p99" title="Filter plot to requests ≥ 99th percentile (per-request values shown)">${(al.p99_ms/1000).toFixed(3)}s</span> → `;
+            html += `95p: <span class="clickable ${p95Class}" data-filter="p95" title="Filter plot to requests ≥ 95th percentile (per-request values shown)">${(al.p95_ms/1000).toFixed(3)}s</span> → `;
+            html += `90p: <span class="clickable ${p90Class}" data-filter="p90" title="Filter plot to requests ≥ 90th percentile (per-request values shown)">${(al.p90_ms/1000).toFixed(3)}s</span> → `;
+            html += `avg: <span class="clickable ${avgClass}" data-filter="avg" title="Filter plot: show all (avg is aggregate)">${(al.avg_ms/1000).toFixed(3)}s</span></div>`;
+            html += '<div class="summary-box"><h3>APDEX</h3>';
+            html += `<span class="${apdexClass}" title="Aggregate score (not per-request)">${(ap.score != null ? ap.score : 0).toFixed(3)}</span>`;
+            html += ` · satisfied: <span class="clickable val-green" data-filter="satisfied" title="Filter plot to satisfied requests (&lt;2s; per-request values shown)">${ap.satisfied || 0}</span>`;
+            html += `, neutral: <span class="clickable" data-filter="neutral" title="Filter plot to neutral requests (2–5s; per-request values shown)">${ap.neutral || 0}</span>`;
+            html += `, not satisfied: <span class="clickable val-red" data-filter="not_satisfied" title="Filter plot to not satisfied requests (&gt;5s; per-request values shown)">${ap.not_satisfied || 0}</span></div>`;
+            el.innerHTML = html;
+            el.querySelectorAll('.clickable').forEach(node => {
+                node.addEventListener('click', () => {
+                    const f = node.dataset.filter;
+                    if (containerId === 'od-summary-boxes') { odMetricFilter = f; odUpdateChart(); }
+                    else { liveMetricFilter = f; liveUpdateChart(); }
+                });
+            });
+        }
+
+        function escapeHtml(s) {
+            if (s == null) return '';
+            const t = String(s);
+            return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function fillScrollLists(rows, usersCountId, usersListId, urisCountId, urisListId) {
+            const users = [...new Set(rows.map(r => r.user).filter(Boolean))].sort();
+            const uris = [...new Set(rows.map(r => (r.uri_full != null ? r.uri_full : r.uri)).filter(Boolean))].sort();
+            document.getElementById(usersCountId).textContent = users.length;
+            document.getElementById(urisCountId).textContent = uris.length;
+            document.getElementById(usersListId).innerHTML = users.map(u => `<div>${escapeHtml(u)}</div>`).join('');
+            document.getElementById(urisListId).innerHTML = uris.map(u => `<div>${escapeHtml(u)}</div>`).join('');
+        }
+
+        function cellVal(r, c) {
+            if (c === 'uri') return r.uri_full != null ? r.uri_full : (r.uri != null ? r.uri : '');
+            return r[c];
+        }
+        function buildTableRows(rows, cumulative) {
+            const thead = document.getElementById('od-thead');
+            const tbody = document.getElementById('od-tbody');
+            const cols = cumulative ? ['timestamp','node','user','uri','response_time_ms','z_score','apdex_category'] : ['timestamp','user','uri','response_time_ms','z_score','apdex_category'];
+            thead.innerHTML = cols.map(c => `<th>${COL_LABELS[c] || c}</th>`).join('');
+            tbody.innerHTML = rows.map(r => `<tr>${cols.map(c => `<td>${escapeHtml(cellVal(r,c) != null ? cellVal(r,c) : '')}</td>`).join('')}</tr>`).join('');
+        }
+
+        function odUpdateChart() {
+            const rangeKey = document.getElementById('od-range').value;
+            const plotType = document.getElementById('od-plot-type').value;
+            let rows = filterByTimeRange(odFullRows, rangeKey);
+            rows = filterByMetric(rows, odSummary, odMetricFilter);
+            if (!rows.length) { if (odChartSingle) { odChartSingle.destroy(); odChartSingle = null; } return; }
+            const labels = rows.map(r => r.timestamp);
+            const yValues = plotType === 'zscore' ? rows.map(r => r.z_score) : rows.map(r => r.response_time_ms);
+            const label = plotType === 'zscore' ? 'Z-Score' : 'Response time (ms)';
+            const color = plotType === 'zscore' ? '#3fb950' : '#58a6ff';
+            if (odChartSingle) odChartSingle.destroy();
+            odChartSingle = new Chart(document.getElementById('chart-od'), {
+                type: 'line',
+                data: { labels, datasets: [{ label, data: yValues, borderColor: color, fill: false, tension: 0.2 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: plotType === 'actual' } } }
+            });
+        }
+
+        document.getElementById('od-range').addEventListener('change', odUpdateChart);
+        document.getElementById('od-plot-type').addEventListener('change', odUpdateChart);
+
+        document.getElementById('od-plot-toggle').addEventListener('click', function() {
+            const chartsEl = document.getElementById('od-charts');
+            const hidden = chartsEl.style.display === 'none';
+            chartsEl.style.display = hidden ? 'block' : 'none';
+            this.textContent = hidden ? 'Collapse' : 'Expand';
+        });
+
+        document.getElementById('od-run').addEventListener('click', async () => {
+            const productId = document.getElementById('od-product').value;
+            const nodesEl = document.getElementById('od-nodes');
+            const nodeNames = Array.from(nodesEl.selectedOptions).map(o => o.value);
+            const days = parseInt(document.getElementById('od-days').value, 10) || defaultDays;
+            const cumulative = document.getElementById('od-cumulative').value === '1';
+            showMessage('od-message', 'Running analysis...', 'info');
+            document.getElementById('od-results').style.display = 'none';
+            try {
+                const fromDate = document.getElementById('od-from').value || null;
+                const toDate = document.getElementById('od-to').value || null;
+                const res = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        product_id: productId,
+                        node_names: nodeNames,
+                        from_date: fromDate,
+                        to_date: toDate,
+                        days,
+                        user_filter: document.getElementById('od-user').value || null,
+                        uri_filter: document.getElementById('od-uri').value || null,
+                        cumulative
+                    })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    showMessage('od-message', data.error || 'Error', 'error');
+                    return;
+                }
+                showMessage('od-message', `Loaded ${data.table_rows.length} records.`, 'success');
+                odFullRows = data.table_rows || [];
+                odSummary = data.summary || {};
+                odMetricFilter = 'all';
+                document.getElementById('od-results').style.display = 'block';
+                buildSummaryBoxes('od-summary-boxes', odSummary);
+                fillScrollLists(odFullRows, 'od-users-count', 'od-users-list', 'od-uris-count', 'od-uris-list');
+                buildTableRows(odFullRows, cumulative);
+                applyRangeOptionsToSelect('od-range', odFullRows);
+                odUpdateChart();
+                window._lastCsv = data.csv;
+                window._lastCsvFilename = data.csv_filename || 'response_time_analysis.csv';
+                document.getElementById('od-download-csv').style.display = 'inline-block';
+            } catch (e) {
+                showMessage('od-message', 'Request failed: ' + e.message, 'error');
+            }
+        });
+
+        document.getElementById('od-download-csv').addEventListener('click', () => {
+            if (!window._lastCsv) return;
+            const a = document.createElement('a');
+            a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(window._lastCsv);
+            a.download = window._lastCsvFilename || 'response_time_analysis.csv';
+            a.click();
+        });
+
+        // --- Live mode ---
+        let liveSessionId = null;
+        let livePollTimer = null;
+        let liveRecords = [];
+        let liveMetricFilter = 'all';
+        let liveChartSingle = null;
+
+        function computeSummaryFromRecords(records) {
+            if (!records.length) return { access_log: { users:0, requests:0, uris:0, p99_ms:0, p95_ms:0, p90_ms:0, avg_ms:0 }, apdex: { score:0, satisfied:0, neutral:0, not_satisfied:0 } };
+            const users = new Set(records.map(r => r.user)).size;
+            const uris = new Set(records.map(r => r.uri)).size;
+            const times = records.map(r => r.response_time_ms || 0).sort((a,b)=>a-b);
+            const p = (arr, q) => { const i = (arr.length - 1) * q / 100; const f = Math.floor(i); const c = Math.min(f + 1, arr.length - 1); return f === c ? arr[f] : arr[f] + (i - f) * (arr[c] - arr[f]); };
+            const sat = records.filter(r => (r.response_time_ms || 0) < 2000).length;
+            const neu = records.filter(r => { const ms = r.response_time_ms || 0; return ms >= 2000 && ms <= 5000; }).length;
+            const notSat = records.filter(r => (r.response_time_ms || 0) > 5000).length;
+            const total = records.length;
+            const score = total ? (sat + 0.5 * neu) / total : 0;
+            return {
+                access_log: { users, requests: total, uris, p99_ms: p(times, 99), p95_ms: p(times, 95), p90_ms: p(times, 90), avg_ms: times.reduce((a,b)=>a+b,0)/total },
+                apdex: { score, satisfied: sat, neutral: neu, not_satisfied: notSat }
+            };
+        }
+
+        function buildLiveTable(records, cumulative) {
+            const thead = document.getElementById('live-thead');
+            const tbody = document.getElementById('live-tbody');
+            const cols = cumulative !== false ? ['timestamp','node','user','uri','response_time_ms','z_score','apdex_category'] : ['timestamp','user','uri','response_time_ms','z_score','apdex_category'];
+            thead.innerHTML = cols.map(c => `<th>${COL_LABELS[c] || c}</th>`).join('');
+            tbody.innerHTML = records.map(r => `<tr>${cols.map(c => `<td>${escapeHtml(cellVal(r,c) != null ? cellVal(r,c) : '')}</td>`).join('')}</tr>`).join('');
+        }
+
+        function liveUpdateChart() {
+            const rangeKey = document.getElementById('live-range').value;
+            const plotType = document.getElementById('live-plot-type').value;
+            let rows = filterByTimeRange(liveRecords, rangeKey);
+            const liveSummary = computeSummaryFromRecords(liveRecords);
+            rows = filterByMetric(rows, liveSummary, liveMetricFilter);
+            if (!rows.length) { if (liveChartSingle) { liveChartSingle.destroy(); liveChartSingle = null; } return; }
+            const labels = rows.map(r => r.timestamp);
+            const yValues = plotType === 'zscore' ? rows.map(r => r.z_score) : rows.map(r => r.response_time_ms);
+            const label = plotType === 'zscore' ? 'Z-Score' : 'Response time (ms)';
+            const color = plotType === 'zscore' ? '#3fb950' : '#58a6ff';
+            if (liveChartSingle) liveChartSingle.destroy();
+            liveChartSingle = new Chart(document.getElementById('chart-live'), {
+                type: 'line',
+                data: { labels, datasets: [{ label, data: yValues, borderColor: color, fill: false, tension: 0.2 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: plotType === 'actual' } } }
+            });
+        }
+
+        document.getElementById('live-range').addEventListener('change', liveUpdateChart);
+        document.getElementById('live-plot-type').addEventListener('change', liveUpdateChart);
+        document.getElementById('live-plot-toggle').addEventListener('click', function() {
+            const chartsEl = document.getElementById('live-charts');
+            const hidden = chartsEl.style.display === 'none';
+            chartsEl.style.display = hidden ? 'block' : 'none';
+            this.textContent = hidden ? 'Collapse' : 'Expand';
+        });
+
+        async function pollLiveUpdates() {
+            if (!liveSessionId) return;
+            try {
+                const res = await fetch(`/api/live/full/${liveSessionId}`);
+                const data = await res.json();
+                if (!data.success) return;
+                liveRecords = data.records || [];
+                const liveSummary = computeSummaryFromRecords(liveRecords);
+                buildSummaryBoxes('live-summary-boxes', liveSummary);
+                fillScrollLists(liveRecords, 'live-users-count', 'live-users-list', 'live-uris-count', 'live-uris-list');
+                buildLiveTable(liveRecords, true);
+                applyRangeOptionsToSelect('live-range', liveRecords);
+                liveUpdateChart();
+            } catch (e) {}
+        }
+
+        document.getElementById('live-start').addEventListener('click', async () => {
+            const productId = document.getElementById('live-product').value;
+            const nodeNames = Array.from(document.getElementById('live-nodes').selectedOptions).map(o => o.value);
+            showMessage('live-message', 'Starting live tail...', 'info');
+            try {
+                const res = await fetch('/api/live/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        product_id: productId,
+                        node_names: nodeNames,
+                        user_filter: document.getElementById('live-user').value || null,
+                        uri_filter: document.getElementById('live-uri').value || null
+                    })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    showMessage('live-message', data.error || 'Error', 'error');
+                    return;
+                }
+                liveSessionId = data.session_id;
+                const ts = new Date().toISOString().replace(/[:.]/g,'').slice(0,15);
+                window._liveCsvFilename = `live_response_time_${document.getElementById('live-product').value}_${liveSessionId.slice(0,8)}_${ts}.csv`;
+                showMessage('live-message', `Tailing ${data.nodes.join(', ')}. Session: ${liveSessionId.slice(0,8)}...`, 'success');
+                document.getElementById('live-start').style.display = 'none';
+                document.getElementById('live-stop').style.display = 'inline-block';
+                document.getElementById('live-download-csv').style.display = 'inline-block';
+                document.getElementById('live-status').style.display = 'inline-flex';
+                document.getElementById('live-results').style.display = 'block';
+                liveRecords = [];
+                fillScrollLists([], 'live-users-count', 'live-users-list', 'live-uris-count', 'live-uris-list');
+                buildLiveTable([], true);
+                buildSummaryBoxes('live-summary-boxes', computeSummaryFromRecords([]));
+                livePollTimer = setInterval(pollLiveUpdates, 2000);
+                pollLiveUpdates();
+            } catch (e) {
+                showMessage('live-message', 'Failed: ' + e.message, 'error');
+            }
+        });
+
+        document.getElementById('live-stop').addEventListener('click', async () => {
+            if (!liveSessionId) return;
+            try {
+                await fetch(`/api/live/stop/${liveSessionId}`, { method: 'POST' });
+            } catch (e) {}
+            liveSessionId = null;
+            if (livePollTimer) clearInterval(livePollTimer);
+            livePollTimer = null;
+            document.getElementById('live-start').style.display = 'inline-block';
+            document.getElementById('live-stop').style.display = 'none';
+            document.getElementById('live-download-csv').style.display = 'none';
+            document.getElementById('live-status').style.display = 'none';
+            showMessage('live-message', 'Stopped.', 'info');
+        });
+
+        document.getElementById('live-download-csv').addEventListener('click', () => {
+            const cols = ['timestamp','node','user','uri','response_time_ms','z_score','apdex_category'];
+            const header = cols.map(c => COL_LABELS[c] || c).join(',');
+            const rows = liveRecords.map(r => cols.map(c => {
+                const val = c === 'uri' ? (r.uri_full != null ? r.uri_full : r.uri) : r[c];
+                const s = val != null ? String(val) : '';
+                return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g,'""')}"` : s;
+            }).join(','));
+            const csv = [header, ...rows].join('\n');
+            const a = document.createElement('a');
+            a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+            a.download = window._liveCsvFilename || 'live_response_time.csv';
+            a.click();
+        });
+    </script>
+</body>
+</html>

@@ -6,7 +6,7 @@ This repository contains a comprehensive collection of automation frameworks, sc
 
 ## Repository Structure
 
-This folder contains **19 specialized automation frameworks**, each designed for specific operational use cases:
+This folder contains **20 specialized automation frameworks**, each designed for specific operational use cases:
 
 ### Performance & Load Testing
 - **[jira_load_test_framework](jira_load_test_framework/)** - Comprehensive load testing framework using Locust for performance certification, resiliency, and longevity testing
@@ -19,6 +19,7 @@ This folder contains **19 specialized automation frameworks**, each designed for
 - **[jira-health-dashboard](jira-health-dashboard/)** - Flask-based web dashboard for monitoring health and index status of multiple Jira Data Center servers
 - **[comprehensive-jira-health-dashboard](comprehensive-jira-health-dashboard/)** - Comprehensive real-time health monitoring dashboard for Jira Data Center clusters with system metrics, database monitoring, and dual disk usage tracking
 - **[jira-response-time-tracker](jira-response-time-tracker/)** - Flask-based web interface for monitoring slow requests from Jira access logs, grouped by user ID with statistics on count, maximum time, and timestamps
+- **[response-time-analysis](atlassian-automation/response-time-analysis/)** - Analyze Jira/Confluence access logs by user and URI over a date range; on-demand and live-tail modes, CSV export with response time and anomaly (Z) score, Flask UI on port 9090
 
 ### Validation & Preflight
 - **[jira_preflight_validator](jira_preflight_validator/)** - Pre-deployment validation framework for Jira Data Center nodes
@@ -128,6 +129,12 @@ Most frameworks require:
   - JSON API endpoint for programmatic access
 - **Use Cases**: Performance monitoring, identifying slow requests by user, troubleshooting performance issues, user behavior analysis
 - **Documentation**: [README](jira-response-time-tracker/README.md)
+
+#### response-time-analysis
+- **Purpose**: Analyze Jira and Confluence access logs by user and/or URI over a configurable date range
+- **Key Features**: On-demand analysis and live tail; server-side grep; CSV with timestamp, node, user, URI, response time (ms), anomaly score (Z-score), APDEX category; Flask UI (port 9090) with table, charts, and CSV download; supports both Tomcat and Confluence log formats
+- **Use Cases**: Response-time analysis for specific URIs/users, anomaly detection, stakeholder reporting from available server logs
+- **Documentation**: [README](atlassian-automation/response-time-analysis/README.md)
 
 ### Validation & Preflight
 
