@@ -36,7 +36,7 @@ pip install -r requirements.txt
 - `csv_directory`: directory for CSV and latest snapshots (default `data`).
 - `background_environments`: list of env names to collect (e.g. `[VMW-Jira, BIT-Jira]`). If **empty**, **all** environments under `config/environments/` are collected.
 - `interval_seconds`: collection interval (default 60).
-- `csv_window_minutes`: window for Z-score (default 60).
+- `csv_window_minutes`: window for Z-score baseline in minutes (default **480** = 8 hours). Using 8 hours is recommended for shift-based anomaly detection (e.g. NASA/EMEA/APAC) so that prolonged outages (e.g. 30–60 min) do not dilute the baseline and keep showing as anomalies.
 - `z_score`: `normal_max`, `medium_max`, `high_max` for green / yellow / red (defaults 1.75, 2.75, 2.75).
 
 ## Run
