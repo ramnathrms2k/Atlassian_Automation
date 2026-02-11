@@ -15,6 +15,7 @@ from app.series_utils import (
     build_extended_columns,
     build_extended_row,
     compute_trend_map,
+    compute_trend_map_from_z,
     compute_z_score_map,
 )
 
@@ -113,6 +114,7 @@ def collect_and_append(environment: str) -> None:
     window_min = cfg.get("monitoring", {}).get("csv_window_minutes", 60)
     window_ms = int(window_min * 60 * 1000)
     z_config = (cfg.get("monitoring") or {}).get("z_score") or {}
+    trend_from_z = (cfg.get("monitoring") or {}).get("trend_from_z_score", False)
     existing_header, existing_rows = _read_csv_rows(path)
     base_rows_for_z = []
     for r in existing_rows:
@@ -120,9 +122,13 @@ def collect_and_append(environment: str) -> None:
     base_rows_for_z = [r for r in base_rows_for_z if r.get("timestamp")]
     z_map = compute_z_score_map(base_rows_for_z, base_row, window_ms)
     prev_row = base_rows_for_z[-1] if base_rows_for_z else None
-    trend_map = compute_trend_map(prev_row, base_row)
+    if trend_from_z and prev_row and base_rows_for_z:
+        series_current = base_rows_for_z + [base_row]
+        trend_map = compute_trend_map_from_z(base_rows_for_z, prev_row, series_current, base_row, window_ms)
+    else:
+        trend_map = compute_trend_map(prev_row, base_row)
     extended_columns = build_extended_columns(base_columns)
-    extended_row = build_extended_row(base_row, z_map, trend_map, base_columns, z_config)
+    extended_row = build_extended_row(base_row, z_map, trend_map, base_columns, z_config, trend_from_z)
     _ensure_csv_header_and_append(path, extended_columns, extended_row)
     latest_p = _latest_path(environment)
     try:

@@ -228,6 +228,7 @@
 
   function getPredictionClass(trendDir, columnKey) {
     if (trendDir === 0) return 'pred-neutral';
+    if (monitoringConfig.trend_from_z_score) return trendDir > 0 ? 'pred-worsen' : 'pred-improve';
     var higherBetter = higherIsBetterForKey(columnKey);
     if (trendDir > 0) return higherBetter ? 'pred-improve' : 'pred-worsen';
     return higherBetter ? 'pred-worsen' : 'pred-improve';
@@ -235,6 +236,7 @@
 
   function getPredictionLabel(trendDir, columnKey) {
     if (trendDir === 0) return 'neutral';
+    if (monitoringConfig.trend_from_z_score) return trendDir > 0 ? 'worsen' : 'improve';
     var higherBetter = higherIsBetterForKey(columnKey);
     if (trendDir > 0) return higherBetter ? 'improve' : 'worsen';
     return higherBetter ? 'worsen' : 'improve';
@@ -264,6 +266,24 @@
       if (isNaN(cn) || isNaN(pn)) continue;
       if (cn > pn) map[key] = 1;
       else if (cn < pn) map[key] = -1;
+      else map[key] = 0;
+    }
+    return map;
+  }
+
+  function computeTrendMapFromZScore(prevRow, currentRow, series, windowMs) {
+    var map = {};
+    if (!series || series.length < 2 || !prevRow || !currentRow) return map;
+    var prevZ = computeZScoreMap(series, prevRow, windowMs);
+    var currZ = computeZScoreMap(series, currentRow, windowMs);
+    for (var key in currZ) {
+      if (!Object.prototype.hasOwnProperty.call(prevZ, key)) continue;
+      var cz = currZ[key];
+      var pz = prevZ[key];
+      if (cz !== cz || pz !== pz) continue;
+      var diff = cz - pz;
+      if (diff > 0) map[key] = 1;
+      else if (diff < 0) map[key] = -1;
       else map[key] = 0;
     }
     return map;
@@ -571,7 +591,10 @@
         var windowMs = (monitoringConfig.csv_window_minutes || 60) * 60 * 1000;
         var zScoreMap = computeZScoreMap(timeSeriesData, flat.row, windowMs);
         var prevRow = timeSeriesData.length >= 2 ? timeSeriesData[timeSeriesData.length - 2].row : null;
-        var trendMap = computeTrendMapFromPrev(prevRow, flat.row);
+        var trendMap = (monitoringConfig.trend_from_z_score && prevRow && timeSeriesData.length >= 2)
+          ? computeTrendMapFromZScore(prevRow, flat.row, timeSeriesData, windowMs)
+          : computeTrendMapFromPrev(prevRow, flat.row);
+        if (monitoringConfig.trend_from_z_score && Object.keys(trendMap).length === 0 && prevRow) trendMap = computeTrendMapFromPrev(prevRow, flat.row);
         var list = data.servers || [];
         var globalHtml = '';
         if (data.access_log_5m_global != null) {
@@ -1019,6 +1042,7 @@
         if (c.monitoring) {
           monitoringConfig = {
             csv_window_minutes: c.monitoring.csv_window_minutes != null ? c.monitoring.csv_window_minutes : 60,
+            trend_from_z_score: c.monitoring.trend_from_z_score === true,
             z_score: c.monitoring.z_score || { normal_max: 1.75, medium_max: 2.75, high_max: 2.75 }
           };
         }

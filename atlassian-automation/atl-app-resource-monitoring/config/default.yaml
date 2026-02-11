@@ -13,6 +13,7 @@ monitoring:
   background_environments: []
   interval_seconds: 60
   csv_window_minutes: 60
+  trend_from_z_score: false   # true = trend from Z-score change (vs previous); false = trend from value one-step
   z_score:
     normal_max: 1.75
     medium_max: 2.75

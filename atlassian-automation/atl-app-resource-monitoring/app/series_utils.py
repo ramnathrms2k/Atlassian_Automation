@@ -77,7 +77,7 @@ def compute_z_score_map(
 
 
 def compute_trend_map(prev_row: dict | None, current_row: dict | None) -> dict[str, int]:
-    """Trend: 1 = up, -1 = down, 0 = stable (per key)."""
+    """Trend: 1 = up, -1 = down, 0 = stable (per key). Value-based one-step comparison."""
     result = {}
     if not prev_row or not current_row:
         return result
@@ -102,6 +102,35 @@ def compute_trend_map(prev_row: dict | None, current_row: dict | None) -> dict[s
     return result
 
 
+def compute_trend_map_from_z(
+    series_prev: list[dict],
+    prev_row: dict,
+    series_current: list[dict],
+    current_row: dict,
+    window_ms: int,
+) -> dict[str, int]:
+    """Trend from Z-score change: 1 = Z up (more anomalous), -1 = Z down (less anomalous), 0 = stable."""
+    result = {}
+    if not series_prev or not prev_row or not series_current or not current_row:
+        return result
+    prev_z = compute_z_score_map(series_prev, prev_row, window_ms)
+    curr_z = compute_z_score_map(series_current, current_row, window_ms)
+    for key in curr_z:
+        if key not in prev_z:
+            continue
+        cz, pz = curr_z[key], prev_z[key]
+        if cz != cz or pz != pz:  # NaN
+            continue
+        diff = cz - pz
+        if diff > 0:
+            result[key] = 1
+        elif diff < 0:
+            result[key] = -1
+        else:
+            result[key] = 0
+    return result
+
+
 def get_z_score_color_label(z_score: float | None, config: dict) -> str:
     """Return green | yellow | red from z_score thresholds."""
     if z_score is None or (isinstance(z_score, float) and z_score != z_score):
@@ -120,9 +149,11 @@ def _higher_is_better(key: str) -> bool:
     return "mem_avail_pct" in key or "heap_avail_pct" in key or key == "apdex" or (key or "").startswith("apdex")
 
 
-def get_prediction_label(trend_dir: int, column_key: str) -> str:
+def get_prediction_label(trend_dir: int, column_key: str, trend_from_z: bool = False) -> str:
     if trend_dir == 0:
         return "neutral"
+    if trend_from_z:
+        return "worsen" if trend_dir > 0 else "improve"
     higher_better = _higher_is_better(column_key)
     if trend_dir > 0:
         return "improve" if higher_better else "worsen"
@@ -145,6 +176,7 @@ def build_extended_row(
     trend_map: dict[str, int],
     base_columns: list[str],
     z_config: dict,
+    trend_from_z: bool = False,
 ) -> dict[str, Any]:
     """Build one extended row with _z, _z_color, _trend, _pred per base column."""
     ext = dict(base_row)
@@ -156,5 +188,5 @@ def build_extended_row(
         ext[col + "_z_color"] = get_z_score_color_label(z, z_config) if z is not None else "green"
         t = trend_map.get(col)
         ext[col + "_trend"] = "up" if t == 1 else ("down" if t == -1 else "")
-        ext[col + "_pred"] = get_prediction_label(t or 0, col)
+        ext[col + "_pred"] = get_prediction_label(t or 0, col, trend_from_z)
     return ext

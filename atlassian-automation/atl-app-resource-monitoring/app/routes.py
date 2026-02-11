@@ -44,6 +44,7 @@ def api_config():
         "monitoring": {
             "csv_directory": monitoring_cfg.get("csv_directory", "data"),
             "csv_window_minutes": monitoring_cfg.get("csv_window_minutes", 60),
+            "trend_from_z_score": monitoring_cfg.get("trend_from_z_score", False),
             "z_score": {
                 "normal_max": z_score.get("normal_max", 1.0),
                 "medium_max": z_score.get("medium_max", 2.0),
