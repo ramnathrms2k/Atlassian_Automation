@@ -32,8 +32,7 @@
   let envServers = [];
 
   function getSelectedEnv() {
-    const v = envSelect.value;
-    return v || null;
+    return (envSelect && envSelect.value) ? envSelect.value : null;
   }
 
   function flattenSnapshot(data) {
@@ -311,13 +310,17 @@
   }
 
   function setStatus(msg, isError) {
-    status.textContent = msg || '';
-    status.style.color = isError ? 'var(--danger)' : 'var(--text-muted)';
+    if (status) {
+      status.textContent = msg || '';
+      status.style.color = isError ? 'var(--danger)' : 'var(--text-muted)';
+    }
   }
 
   function setLastUpdated() {
-    const d = new Date();
-    lastUpdated.textContent = 'Last updated: ' + d.toLocaleTimeString();
+    if (lastUpdated) {
+      const d = new Date();
+      lastUpdated.textContent = 'Last updated: ' + d.toLocaleTimeString();
+    }
   }
 
   function renderServer(s, serverIndex, zScoreMap, trendMap) {
@@ -987,7 +990,7 @@
     fetch('/api/config')
       .then(function (r) { return r.json(); })
       .then(function (c) {
-        if (c.environment) envBadge.textContent = c.environment;
+        if (c.environment && envBadge) envBadge.textContent = c.environment;
         if (c.monitoring) {
           monitoringConfig = {
             csv_window_minutes: c.monitoring.csv_window_minutes != null ? c.monitoring.csv_window_minutes : 60,
@@ -995,7 +998,7 @@
           };
         }
         var envs = c.environments || [];
-        if (envs.length && !envSelect.options.length) {
+        if (envSelect && envs.length && !envSelect.options.length) {
           envSelect.innerHTML = envs.map(function (e) {
             return '<option value="' + escapeHtml(e) + '">' + escapeHtml(e) + '</option>';
           }).join('');
@@ -1011,11 +1014,13 @@
       .catch(function () {});
   }
 
-  envSelect.addEventListener('change', function () {
-    var env = getSelectedEnv();
-    if (env) envBadge.textContent = env;
-    refreshData();
-  });
+  if (envSelect) {
+    envSelect.addEventListener('change', function () {
+      var env = getSelectedEnv();
+      if (env && envBadge) envBadge.textContent = env;
+      refreshData();
+    });
+  }
 
   loadConfig();
 })();
