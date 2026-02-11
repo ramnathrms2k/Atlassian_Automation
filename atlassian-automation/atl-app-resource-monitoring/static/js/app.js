@@ -844,7 +844,14 @@
   }
 
   function updatePlotRangeOptions() {
-    if (!plotRangeSelect || !timeSeriesData.length) return;
+    if (!plotRangeSelect) return;
+    if (!timeSeriesData.length) {
+      for (var i = 0; i < plotRangeSelect.options.length; i++) {
+        var opt = plotRangeSelect.options[i];
+        opt.disabled = opt.value !== 'custom' && !isNaN(parseInt(opt.value, 10));
+      }
+      return;
+    }
     var now = Date.now();
     var oldest = timeSeriesData[0].ts;
     var dataSpanMinutes = (now - oldest) / (60 * 1000);
@@ -876,8 +883,18 @@
     return { startMs: startMs, endMs: endMs };
   }
 
+  var plotNoDataEl = document.getElementById('plot-no-data');
+
   function drawChart() {
     if (!selectedMetric || !plotCanvas || typeof Chart === 'undefined') return;
+    if (!timeSeriesData.length) {
+      if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+      if (plotNoDataEl) { plotNoDataEl.style.display = 'block'; plotNoDataEl.setAttribute('aria-hidden', 'false'); }
+      plotCanvas.style.display = 'none';
+      return;
+    }
+    if (plotNoDataEl) { plotNoDataEl.style.display = 'none'; plotNoDataEl.setAttribute('aria-hidden', 'true'); }
+    plotCanvas.style.display = 'block';
     var useZ = plotModeSelect && plotModeSelect.value === 'z';
     var rangeSpec;
     if (plotRangeSelect && plotRangeSelect.value === 'custom') {

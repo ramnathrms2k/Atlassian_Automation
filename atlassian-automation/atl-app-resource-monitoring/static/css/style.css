@@ -466,6 +466,20 @@ tr:hover td {
   border-radius: 8px;
 }
 
+.plot-no-data {
+  display: none;
+  padding: 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.plot-no-data code {
+  background: var(--border);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
 #plot-canvas {
   width: 100%;
   max-height: 400px;
