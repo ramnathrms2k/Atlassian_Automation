@@ -12,8 +12,7 @@ monitoring:
   csv_directory: data
   background_environments: []
   interval_seconds: 60
-  # Z-score baseline window: 8h recommended so prolonged outages (e.g. 30–60 min) don't dilute the baseline (shift-based anomaly detection).
-  csv_window_minutes: 480
+  csv_window_minutes: 60
   z_score:
     normal_max: 1.75
     medium_max: 2.75

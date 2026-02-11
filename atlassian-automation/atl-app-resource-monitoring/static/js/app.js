@@ -22,7 +22,7 @@
 
   const REFRESH_INTERVAL_MS = 60000;
   let refreshDataTimer = null;
-  let monitoringConfig = { csv_window_minutes: 480, z_score: { normal_max: 1, medium_max: 2, high_max: 3 } };
+  let monitoringConfig = { csv_window_minutes: 60, z_score: { normal_max: 1, medium_max: 2, high_max: 3 } };
   let timeSeriesData = [];
   let timeSeriesColumns = null;
   let timeSeriesEnvironment = null;
@@ -557,7 +557,7 @@
         dbCards.innerHTML = '';
       } else {
         var flat = flattenSnapshot(data);
-        var windowMs = (monitoringConfig.csv_window_minutes || 480) * 60 * 1000;
+        var windowMs = (monitoringConfig.csv_window_minutes || 60) * 60 * 1000;
         var zScoreMap = computeZScoreMap(timeSeriesData, flat.row, windowMs);
         var prevRow = timeSeriesData.length >= 2 ? timeSeriesData[timeSeriesData.length - 2].row : null;
         var trendMap = computeTrendMapFromPrev(prevRow, flat.row);
@@ -698,7 +698,7 @@
     if (!timeSeriesData.length || !timeSeriesColumns) return;
     var env = timeSeriesEnvironment || getSelectedEnv() || 'default';
     var startStr = timeSeriesData[0] && timeSeriesData[0].ts ? new Date(timeSeriesData[0].ts).toISOString().replace(/[:.]/g, '-') : new Date().toISOString().replace(/[:.]/g, '-');
-    var windowMs = (monitoringConfig.csv_window_minutes || 480) * 60 * 1000;
+    var windowMs = (monitoringConfig.csv_window_minutes || 60) * 60 * 1000;
     var extendedColumns = [];
     timeSeriesColumns.forEach(function (col) {
       extendedColumns.push(col);
@@ -990,7 +990,7 @@
         if (c.environment) envBadge.textContent = c.environment;
         if (c.monitoring) {
           monitoringConfig = {
-            csv_window_minutes: c.monitoring.csv_window_minutes != null ? c.monitoring.csv_window_minutes : 480,
+            csv_window_minutes: c.monitoring.csv_window_minutes != null ? c.monitoring.csv_window_minutes : 60,
             z_score: c.monitoring.z_score || { normal_max: 1.75, medium_max: 2.75, high_max: 2.75 }
           };
         }
