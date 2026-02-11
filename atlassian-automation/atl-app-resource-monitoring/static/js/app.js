@@ -536,6 +536,14 @@
       fetch(latestUrl).then(function (r) { return r.status === 404 ? null : r.json(); }),
       fetch(seriesUrl).then(function (r) { return r.ok ? r.json() : { columns: [], rows: [] }; })
     ]).then(function (results) {
+      var data = results[0];
+      if (!data || data.error) {
+        return fetch(apiUrl('/api/metrics')).then(function (r) { return r.ok ? r.json() : null; }).then(function (live) {
+          return [live || data, results[1]];
+        });
+      }
+      return results;
+    }).then(function (results) {
       if (getSelectedEnv() !== env) return;
       var data = results[0];
       var json = results[1];
